@@ -80,7 +80,9 @@ CORS(app,
 # -----------------------------------------------------------------------------
 API_KEY = os.environ.get('API_KEY', '').strip() or None  # Treat empty string as None
 
-# Routes that do NOT require API key authentication
+# Routes that do NOT require API key authentication in standalone mode.
+# /api/login is intentionally excluded: when API_KEY is configured we keep a
+# shared-key gate even on auth bootstrap endpoints.
 PUBLIC_ROUTES = frozenset(['/api/version'])
 PROXIED_ROUTES = frozenset([
     '/api/version',
@@ -388,12 +390,14 @@ def api_version():
     """Return API version info"""
     return flask.jsonify({'version': APP_VERSION}), 200
 
+# /api/login is the canonical endpoint for openviva api integration.
+# /login is kept as a backward-compatible alias.
 @app.route('/api/login', methods=['POST'])
 @app.route('/login', methods=['POST'])
 def login_route():
     """
     API endpoint for login - returns JSON response.
-    POST /api/login with form data: user_id, user_pass
+    POST /api/login (canonical) or /login (alias) with form data: user_id, user_pass
     Returns: { success: true } or { error: "..." }
     """
     user_id = flask.request.form.get('user_id', '')
