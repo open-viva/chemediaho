@@ -7,7 +7,7 @@ services:
     environment:
       FLASK_ENV: production
       STANDALONE_MODE: "true"  # Serve frontend + API from Flask
-      # API_BASE: "https://your-open-viva-api"  # Required when STANDALONE_MODE=false
+      # API_BASE: "https://your-openviva-api"  # openviva api endpoint when STANDALONE_MODE=false
       # API_KEY: "your-secret"  # Enable for API key protection
     volumes:
       # persiste la secret key fuori dal container

@@ -62,13 +62,13 @@ tutto in un unico container: frontend + api.
 - ✅ ideale per uso locale/domestico
 - ✅ basta un `docker compose up`
 
-### 2️⃣ vercel + api esterna (avanzata)
+### 2️⃣ vercel + openviva api (avanzata)
 
-frontend su vercel, backend in modalità proxy verso API esterna (es. open-viva/api).
+frontend su vercel, backend in modalità proxy verso **openviva api**: https://github.com/open-viva/api
 
 - ✅ frontend accessibile ovunque
 - ✅ backend leggero: inoltra solo richieste all'endpoint configurato
-- ✅ compatibile con API esterne REST
+- ✅ compatibile con openviva api
 
 ---
 
@@ -96,9 +96,9 @@ docker compose up -d
 l'app sarà disponibile su **porta 8001**.
 apri 👉 **[http://localhost:8001](http://localhost:8001)**
 
-## 2 - 🌐 vercel + api esterna
+## 2 - 🌐 vercel + openviva api
 
-per utenti avanzati: frontend su vercel, backend in proxy verso API esterna.
+per utenti avanzati: frontend su vercel, backend in proxy verso openviva api.
 
 ### perché questa modalità?
 
@@ -111,12 +111,12 @@ per utenti avanzati: frontend su vercel, backend in proxy verso API esterna.
 #### 1. avvia il backend proxy
 
 ```bash
-STANDALONE_MODE=false API_BASE=https://tuo-endpoint-open-viva-api API_KEY=tua-chiave-segreta python app.py
+STANDALONE_MODE=false API_BASE=https://tuo-endpoint-openviva-api API_KEY=tua-chiave-segreta python app.py
 ```
 
 > [!NOTE]
 > L'```API_KEY``` non è obbligatoria, ma consigliata.
-> Imposta sempre `API_BASE` a un endpoint valido dell'API esterna REST.
+> Imposta sempre `API_BASE` a un endpoint valido di openviva api.
 
 #### 2. deploya su vercel
 
@@ -155,11 +155,11 @@ secrets:
 
 ### 401 dopo login (cross-origin)
 
-se usi vercel + api esterna e ricevi 401 dopo il login:
+se usi vercel + openviva api e ricevi 401 dopo il login:
 
 1. verifica che `API_BASE` punti all'endpoint corretto
 2. verifica che eventuale `API_KEY` sia la stessa lato frontend/backend
-3. controlla che l'API esterna esponga le route REST attese
+3. controlla che openviva api esponga le route REST attese
 
 ### controlla i log
 

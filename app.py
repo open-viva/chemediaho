@@ -39,8 +39,8 @@ from flask_cors import CORS
 # When STANDALONE_MODE=true, the Flask app serves both the API and the static
 # frontend files. This is the recommended mode for Docker deployments.
 #
-# When STANDALONE_MODE=false, the Flask app works as a thin proxy towards an
-# external API endpoint configured by the user (e.g. open-viva/api).
+# When STANDALONE_MODE=false, the Flask app works as a thin proxy towards
+# openviva api: https://github.com/open-viva/api
 # -----------------------------------------------------------------------------
 STANDALONE_MODE = os.environ.get('STANDALONE_MODE', 'true').lower() == 'true'
 
@@ -132,8 +132,8 @@ def proxy_to_upstream():
             timeout=30
         )
     except requests.exceptions.RequestException as exc:
-        logger.warning("Upstream API request failed: %s", exc)
-        return flask.jsonify({'error': 'Impossibile raggiungere API upstream'}), 502
+        logger.warning("OpenViva API request failed: %s", exc)
+        return flask.jsonify({'error': 'Impossibile raggiungere openviva api'}), 502
 
     content_type = upstream_response.headers.get('Content-Type', '')
     allowed_response = (
@@ -141,15 +141,15 @@ def proxy_to_upstream():
         or content_type.startswith('text/csv')
     )
     if not allowed_response:
-        logger.warning("Unexpected upstream content type for %s: %s", flask.request.path, content_type)
-        return flask.jsonify({'error': 'Risposta upstream non valida'}), 502
+        logger.warning("Unexpected OpenViva API content type for %s: %s", flask.request.path, content_type)
+        return flask.jsonify({'error': 'Risposta openviva api non valida'}), 502
 
     if content_type.startswith('application/json'):
         try:
             payload = upstream_response.json()
         except ValueError:
-            logger.warning("Invalid JSON returned by upstream for %s", flask.request.path)
-            return flask.jsonify({'error': 'Risposta upstream non valida'}), 502
+            logger.warning("Invalid JSON returned by OpenViva API for %s", flask.request.path)
+            return flask.jsonify({'error': 'Risposta openviva api non valida'}), 502
         response = flask.jsonify(payload)
         response.status_code = upstream_response.status_code
         return response
@@ -157,7 +157,7 @@ def proxy_to_upstream():
     try:
         csv_content = upstream_response.content.decode('utf-8')
     except UnicodeDecodeError:
-        logger.warning("Invalid UTF-8 in upstream CSV response for %s", flask.request.path)
+        logger.warning("Invalid UTF-8 in OpenViva API CSV response for %s", flask.request.path)
         csv_content = upstream_response.content.decode('utf-8', errors='replace')
     response = flask.Response(csv_content, mimetype='text/csv')
     response.status_code = upstream_response.status_code
