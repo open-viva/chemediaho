@@ -99,21 +99,21 @@ PROXIED_ROUTES = frozenset([
     '/predict_average_overall',
     '/export/csv'
 ])
-UPSTREAM_API_BASE = os.environ.get('API_BASE', '').strip().rstrip('/')
+API_BASE = os.environ.get('API_BASE', '').strip().rstrip('/')
 
 
 def proxy_to_upstream():
-    """Forward proxied API requests to API_BASE.
+    """Forward proxied API requests (GET/POST/OPTIONS, etc.) to API_BASE.
     
     Returns:
     - 503 when API_BASE is missing
     - 502 when upstream is unreachable or returns an unexpected content type
     - Upstream status/body/headers for expected API responses
     """
-    if not UPSTREAM_API_BASE:
+    if not API_BASE:
         return flask.jsonify({'error': 'API_BASE non configurato'}), 503
 
-    upstream_url = f"{UPSTREAM_API_BASE}{flask.request.path}"
+    upstream_url = f"{API_BASE}{flask.request.path}"
     forwarded_headers = {
         key: value
         for key, value in flask.request.headers.items()
@@ -133,7 +133,7 @@ def proxy_to_upstream():
         )
     except requests.exceptions.RequestException as exc:
         logger.warning("Upstream API request failed: %s", exc)
-        return flask.jsonify({'error': 'Impossibile raggiungere API upstream', 'details': str(exc)}), 502
+        return flask.jsonify({'error': 'Impossibile raggiungere API upstream'}), 502
 
     content_type = upstream_response.headers.get('Content-Type', '')
     allowed_response = (
@@ -149,6 +149,17 @@ def proxy_to_upstream():
         (name, value) for name, value in upstream_response.headers.items()
         if name.lower() not in excluded_headers
     ]
+
+    if content_type.startswith('application/json'):
+        try:
+            payload = upstream_response.json()
+        except ValueError:
+            logger.warning("Invalid JSON returned by upstream for %s", flask.request.path)
+            return flask.jsonify({'error': 'Risposta upstream non valida'}), 502
+        response = flask.jsonify(payload)
+        response.status_code = upstream_response.status_code
+        return response
+
     return flask.Response(upstream_response.content, upstream_response.status_code, response_headers)
 
 
@@ -344,7 +355,10 @@ if STANDALONE_MODE:
         """Serve service worker"""
         return flask.send_from_directory('frontend', 'sw.js')
 else:
-    logger.info("Running in PROXY mode - API calls are forwarded to API_BASE")
+    logger.info(
+        "Running in PROXY mode - API calls are forwarded to API_BASE (%s)",
+        "configured" if API_BASE else "missing"
+    )
 
 # =============================================================================
 # API ENDPOINTS
