@@ -154,7 +154,11 @@ def proxy_to_upstream():
         response.status_code = upstream_response.status_code
         return response
 
-    csv_content = upstream_response.content.decode('utf-8', errors='replace')
+    try:
+        csv_content = upstream_response.content.decode('utf-8')
+    except UnicodeDecodeError:
+        logger.warning("Invalid UTF-8 in upstream CSV response for %s", flask.request.path)
+        csv_content = upstream_response.content.decode('utf-8', errors='replace')
     response = flask.Response(csv_content, mimetype='text/csv')
     response.status_code = upstream_response.status_code
     response.headers['Content-Disposition'] = 'attachment; filename=voti.csv'
