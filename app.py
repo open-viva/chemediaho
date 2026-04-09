@@ -144,12 +144,6 @@ def proxy_to_upstream():
         logger.warning("Unexpected upstream content type for %s: %s", flask.request.path, content_type)
         return flask.jsonify({'error': 'Risposta upstream non valida'}), 502
 
-    excluded_headers = {'content-length', 'transfer-encoding', 'connection'}
-    response_headers = [
-        (name, value) for name, value in upstream_response.headers.items()
-        if name.lower() not in excluded_headers
-    ]
-
     if content_type.startswith('application/json'):
         try:
             payload = upstream_response.json()
@@ -160,7 +154,16 @@ def proxy_to_upstream():
         response.status_code = upstream_response.status_code
         return response
 
-    return flask.Response(upstream_response.content, upstream_response.status_code, response_headers)
+    disposition = upstream_response.headers.get('Content-Disposition', 'attachment; filename=voti.csv')
+    response = flask.send_file(
+        io.BytesIO(upstream_response.content),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name='voti.csv'
+    )
+    response.status_code = upstream_response.status_code
+    response.headers['Content-Disposition'] = disposition
+    return response
 
 
 @app.before_request
