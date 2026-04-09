@@ -94,7 +94,10 @@ async function performLogout() {
  */
 async function checkAuth() {
   try {
-    const response = await apiFetch('/export');
+    if (!sessionStorage.getItem('openviva_session_id')) {
+      return false;
+    }
+    const response = await apiFetch('/api/version');
     return response.ok;
   } catch (error) {
     return false;

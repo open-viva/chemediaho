@@ -161,7 +161,7 @@ def proxy_to_upstream():
             version = payload.get('version')
             if not version:
                 logger.warning("Missing version field in OpenViva API health response")
-                return flask.jsonify({'error': 'Versione openviva api non disponibile'}), 502
+                return flask.jsonify({'error': 'Campo version mancante nella risposta /api/health di openviva api'}), 502
             payload = {'version': version}
         response = flask.jsonify(payload)
         response.status_code = upstream_response.status_code
