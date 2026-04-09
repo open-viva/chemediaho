@@ -81,13 +81,12 @@ CORS(app,
 API_KEY = os.environ.get('API_KEY', '').strip() or None  # Treat empty string as None
 
 # Routes that do NOT require API key authentication
-PUBLIC_ROUTES = frozenset(['/api/session', '/api/version'])
+PUBLIC_ROUTES = frozenset(['/api/version'])
 PROXIED_ROUTES = frozenset([
-    '/api/session',
     '/api/version',
+    '/api/login',
     '/login',
     '/logout',
-    '/refresh_grades',
     '/grades',
     '/export',
     '/settings',
@@ -99,6 +98,10 @@ PROXIED_ROUTES = frozenset([
     '/predict_average_overall',
     '/export/csv'
 ])
+PROXY_PATH_MAP = {
+    '/login': '/api/login',
+    '/api/version': '/api/health',
+}
 API_BASE = os.environ.get('API_BASE', '').strip().rstrip('/')
 
 
@@ -113,7 +116,8 @@ def proxy_to_upstream():
     if not API_BASE:
         return flask.jsonify({'error': 'API_BASE non configurato'}), 503
 
-    upstream_url = f"{API_BASE}{flask.request.path}"
+    upstream_path = PROXY_PATH_MAP.get(flask.request.path, flask.request.path)
+    upstream_url = f"{API_BASE}{upstream_path}"
     forwarded_headers = {
         key: value
         for key, value in flask.request.headers.items()
@@ -150,6 +154,12 @@ def proxy_to_upstream():
         except ValueError:
             logger.warning("Invalid JSON returned by OpenViva API for %s", flask.request.path)
             return flask.jsonify({'error': 'Risposta openviva api non valida'}), 502
+        if flask.request.path == '/api/version':
+            version = payload.get('version')
+            if not version:
+                logger.warning("Missing version field in OpenViva API health response")
+                return flask.jsonify({'error': 'Versione openviva api non disponibile'}), 502
+            payload = {'version': version}
         response = flask.jsonify(payload)
         response.status_code = upstream_response.status_code
         return response
@@ -370,23 +380,17 @@ else:
 # The frontend is either served by Flask (standalone) or deployed separately.
 # =============================================================================
 
-@app.route('/api/session')
-def api_session():
-    """Check if user has an active session"""
-    if 'token' in flask.session:
-        return flask.jsonify({'authenticated': True}), 200
-    return flask.jsonify({'authenticated': False}), 200
-
 @app.route('/api/version')
 def api_version():
     """Return API version info"""
     return flask.jsonify({'version': APP_VERSION}), 200
 
+@app.route('/api/login', methods=['POST'])
 @app.route('/login', methods=['POST'])
 def login_route():
     """
     API endpoint for login - returns JSON response.
-    POST /login with form data: user_id, user_pass
+    POST /api/login with form data: user_id, user_pass
     Returns: { success: true } or { error: "..." }
     """
     user_id = flask.request.form.get('user_id', '')
@@ -434,38 +438,6 @@ def logout():
     """API endpoint for logout - returns JSON response."""
     flask.session.clear()
     return flask.jsonify({'success': True}), 200
-
-@app.route('/refresh_grades', methods=['POST'])
-def refresh_grades():
-    """Refresh grades from ClasseViva API"""
-    if 'token' not in flask.session:
-        return flask.jsonify({'error': 'No active session'}), 401
-    
-    try:
-        token = flask.session['token']
-        if 'user_id' not in flask.session:
-            return flask.jsonify({'error': 'User ID not found in session'}), 400
-        
-        user_id = flask.session['user_id']
-        student_id = "".join(filter(str.isdigit, user_id))
-        
-        # fetch grades from REST API
-        grades_avr = calculate_avr(get_grades(student_id, token))
-        
-        # update session
-        flask.session['grades_avr'] = grades_avr
-        
-        return flask.jsonify({'success': True, 'message': 'Voti aggiornati'}), 200
-    except requests.exceptions.HTTPError as e:
-        error_code = getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None
-        if error_code == 401:
-            # token expired so redirect to login
-            flask.session.clear()
-            return flask.jsonify({'error': 'Sessione scaduta', 'redirect': '/'}), 401
-        return flask.jsonify({'error': 'Errore durante l\'aggiornamento'}), 500
-    except Exception as e:
-        logger.error(f"Error refreshing grades: {e}", exc_info=True)
-        return flask.jsonify({'error': 'Errore durante l\'aggiornamento dei voti'}), 500
 
 @app.route('/grades')
 def grades_page():

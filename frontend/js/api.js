@@ -8,14 +8,14 @@
  * - Proper credentials handling for cross-origin sessions
  * 
  * Usage:
- *   apiFetch('/login', { method: 'POST', body: formData })
+ *   apiFetch('/api/login', { method: 'POST', body: formData })
  *   apiFetch('/grades')
  *   apiFetch('/calculate_goal', { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } })
  */
 
 /**
  * Make a fetch request to the backend API
- * @param {string} path - The API path (e.g., '/login', '/grades')
+ * @param {string} path - The API path (e.g., '/api/login', '/grades')
  * @param {object} options - Fetch options (method, headers, body, etc.)
  * @returns {Promise<Response>} - The fetch response
  */
@@ -91,7 +91,7 @@ async function performLogout() {
  */
 async function checkAuth() {
   try {
-    const response = await apiFetch('/api/session');
+    const response = await apiFetch('/grades');
     return response.ok;
   } catch (error) {
     return false;

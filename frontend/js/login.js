@@ -156,7 +156,7 @@ form.addEventListener('submit', async function(e) {
   
   try {
     const formData = new FormData(form);
-    const response = await apiFetch('/login', {
+    const response = await apiFetch('/api/login', {
       method: 'POST',
       body: formData
     });

@@ -99,29 +99,9 @@ updateBtn.addEventListener('click', async () => {
   updateBtn.disabled = true;
   
   try {
-    // Step 1: Sync grades using apiFetch
-    showNotification('Sincronizzazione voti in corso...', 'info');
-    const syncResponse = await apiFetch('/refresh_grades', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-    
-    const syncData = await syncResponse.json();
-    
-    if (!syncResponse.ok) {
-      if (syncResponse.status === 401) {
-        // Session expired - redirect to login
-        navigateTo('index.html');
-        return;
-      }
-      throw new Error(syncData.error || 'Errore durante la sincronizzazione');
-    }
-    
-    showNotification('Voti sincronizzati! Aggiornamento app...', 'success');
-    
-    // Step 2: Clear cache
+    showNotification('Aggiornamento app in corso...', 'info');
+
+    // Step 1: Clear cache
     await new Promise(resolve => setTimeout(resolve, 500));
     
     if ('caches' in window) {
@@ -129,7 +109,7 @@ updateBtn.addEventListener('click', async () => {
       await Promise.all(cacheNames.map(name => caches.delete(name)));
     }
     
-    // Step 3: Unregister Service Worker
+    // Step 2: Unregister Service Worker
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations();
       await Promise.all(registrations.map(reg => reg.unregister()));
