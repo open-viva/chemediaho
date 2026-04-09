@@ -100,6 +100,7 @@ PROXIED_ROUTES = frozenset([
 ])
 PROXY_PATH_MAP = {
     '/login': '/api/login',
+    '/grades': '/api/grades',
     '/api/version': '/api/health',
 }
 API_BASE = os.environ.get('API_BASE', '').strip().rstrip('/')
@@ -154,6 +155,8 @@ def proxy_to_upstream():
         except ValueError:
             logger.warning("Invalid JSON returned by OpenViva API for %s", flask.request.path)
             return flask.jsonify({'error': 'Risposta openviva api non valida'}), 502
+        # Keep the existing /api/version contract while sourcing the value from
+        # openviva api /api/health response.
         if flask.request.path == '/api/version':
             version = payload.get('version')
             if not version:

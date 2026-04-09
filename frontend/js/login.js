@@ -163,18 +163,27 @@ form.addEventListener('submit', async function(e) {
     
     const data = await response.json();
     
-    if (response.ok && data.success) {
+    const openvivaSessionId = data && typeof data.sessionId === 'string' ? data.sessionId : null;
+    const legacySuccess = data && data.success === true;
+    if (response.ok && (openvivaSessionId || legacySuccess)) {
+      if (openvivaSessionId) {
+        sessionStorage.setItem('openviva_session_id', openvivaSessionId);
+      } else {
+        sessionStorage.removeItem('openviva_session_id');
+      }
       // Login successful - navigate to grades page
       navigateTo('grades.html');
       return;
     }
     
     // Show error message
+    sessionStorage.removeItem('openviva_session_id');
     errorMessage.textContent = data.error || 'Errore durante il login. Riprova.';
     submitBtn.disabled = false;
     submitBtn.textContent = 'Accedi';
   } catch (error) {
     console.error('Login error:', error);
+    sessionStorage.removeItem('openviva_session_id');
     errorMessage.textContent = 'Errore di connessione. Verifica la tua connessione internet.';
     submitBtn.disabled = false;
     submitBtn.textContent = 'Accedi';

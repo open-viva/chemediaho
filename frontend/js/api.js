@@ -27,6 +27,7 @@ function apiFetch(path, options = {}) {
   }
   
   const { API_BASE, API_KEY } = window.APP_CONFIG;
+  const sessionId = sessionStorage.getItem('openviva_session_id');
   
   // Build the full URL
   // API_BASE can be empty (same-origin), a relative path, or full URL
@@ -35,7 +36,8 @@ function apiFetch(path, options = {}) {
   // Merge headers - add API key if configured
   const headers = {
     ...(options.headers || {}),
-    ...(API_KEY ? { 'X-API-Key': API_KEY } : {})
+    ...(API_KEY ? { 'X-API-Key': API_KEY } : {}),
+    ...(sessionId && path !== '/api/login' ? { 'X-Session-Id': sessionId } : {})
   };
   
   // Make the request with credentials for cross-origin session support
@@ -81,6 +83,7 @@ async function performLogout() {
   } catch (error) {
     console.error('Logout error:', error);
   }
+  sessionStorage.removeItem('openviva_session_id');
   // Always redirect to login page
   navigateTo('index.html');
 }
@@ -91,7 +94,7 @@ async function performLogout() {
  */
 async function checkAuth() {
   try {
-    const response = await apiFetch('/grades');
+    const response = await apiFetch('/export');
     return response.ok;
   } catch (error) {
     return false;
