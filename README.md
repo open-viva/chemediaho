@@ -62,13 +62,13 @@ tutto in un unico container: frontend + api.
 - ✅ ideale per uso locale/domestico
 - ✅ basta un `docker compose up`
 
-### 2️⃣ vercel + api locale (avanzata)
+### 2️⃣ vercel + api esterna (avanzata)
 
-frontend su vercel, api locale con tunnel https.
+frontend su vercel, backend in modalità proxy verso API esterna (es. open-viva/api).
 
 - ✅ frontend accessibile ovunque
-- ✅ api su ip residenziale (bypass akamai waf)
-- ✅ richiede ngrok/cloudflare tunnel
+- ✅ backend leggero: inoltra solo richieste all'endpoint configurato
+- ✅ compatibile con API esterne REST
 
 ---
 
@@ -96,36 +96,29 @@ docker compose up -d
 l'app sarà disponibile su **porta 8001**.
 apri 👉 **[http://localhost:8001](http://localhost:8001)**
 
-## 2 - 🌐 vercel + api locale
+## 2 - 🌐 vercel + api esterna
 
-per utenti avanzati: frontend su vercel, api locale.
+per utenti avanzati: frontend su vercel, backend in proxy verso API esterna.
 
 ### perché questa modalità?
 
-- classeviva usa **akamai waf** che blocca richieste da datacenter
-- l'api deve girare su un **ip residenziale** (casa tua)
-- il frontend può stare su vercel (con tutti i benefici che ne conseguono)
+- separi frontend e backend
+- quando `STANDALONE_MODE=false` l'app **non usa l'API interna**
+- tutte le chiamate vengono inoltrate all'endpoint `API_BASE`
 
 ### setup
 
-#### 1. avvia l'api locale
+#### 1. avvia il backend proxy
 
 ```bash
-STANDALONE_MODE=false HTTPS_ENABLED=true API_KEY=tua-chiave-segreta python app.py
+STANDALONE_MODE=false API_BASE=https://tuo-endpoint-open-viva-api API_KEY=tua-chiave-segreta python app.py
 ```
 
 > [!NOTE]
 > L'```API_KEY``` non è obbligatoria, ma consigliata.
-> È molto importante che ```HTTPS_ENABLED``` sia true.
+> Imposta sempre `API_BASE` a un endpoint valido dell'API esterna REST.
 
-#### 2. esponi l'api con tunnel https
-
-```bash
-ngrok http 8001
-# oppure cloudflare tunnel
-```
-
-#### 3. deploya su vercel
+#### 2. deploya su vercel
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fgablilli%2Fchemediaho%2Ftree%2Fmain%2Ffrontend&env=API_BASE,API_KEY&project-name=mychemediaho&repository-name=mychemediaho)
 
@@ -162,11 +155,11 @@ secrets:
 
 ### 401 dopo login (cross-origin)
 
-se usi vercel + api locale e ricevi 401 dopo il login:
+se usi vercel + api esterna e ricevi 401 dopo il login:
 
-1. assicurati che `HTTPS_ENABLED=true` sia impostato
-2. usa un tunnel https (ngrok, cloudflare)
-3. verifica che `API_BASE` in `config.runtime.js` sia corretto
+1. verifica che `API_BASE` punti all'endpoint corretto
+2. verifica che eventuale `API_KEY` sia la stessa lato frontend/backend
+3. controlla che l'API esterna esponga le route REST attese
 
 ### controlla i log
 

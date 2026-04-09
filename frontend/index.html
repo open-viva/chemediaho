@@ -65,27 +65,15 @@
           </svg>
         </div>
 
-        <!-- Login Type Tabs -->
-        <div class="login-tabs">
-          <button type="button" class="login-tab active" data-tab="userid" onclick="switchLoginTab('userid')">User ID</button>
-          <button type="button" class="login-tab" data-tab="email" onclick="switchLoginTab('email')">Email</button>
-        </div>
-
         <form id="loginForm">
-          <input type="hidden" name="login_type" id="login_type" value="userid">
-          
           <div class="form-group">
-            <label for="user_id" class="form-label" id="user_id_label"
-                   data-userid-label="User ID"
-                   data-email-label="Email">User ID</label>
+            <label for="user_id" class="form-label">User ID</label>
             <div class="input-wrapper">
               <input 
                 type="text" 
                 class="form-input" 
                 id="user_id" 
                 name="user_id" 
-                data-userid-placeholder="G123456789P"
-                data-email-placeholder="nome@esempio.com"
                 placeholder="G123456789P"
                 required
                 autocomplete="username"

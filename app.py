@@ -30,9 +30,7 @@ import secrets
 import csv
 import io
 import logging
-import re
 from datetime import datetime
-from bs4 import BeautifulSoup
 from flask_cors import CORS
 
 # -----------------------------------------------------------------------------
@@ -41,8 +39,8 @@ from flask_cors import CORS
 # When STANDALONE_MODE=true, the Flask app serves both the API and the static
 # frontend files. This is the recommended mode for Docker deployments.
 #
-# When STANDALONE_MODE=false (default), the Flask app only serves the API.
-# The frontend should be deployed separately (e.g., to Vercel).
+# When STANDALONE_MODE=false, the Flask app works as a thin proxy towards an
+# external API endpoint configured by the user (e.g. open-viva/api).
 # -----------------------------------------------------------------------------
 STANDALONE_MODE = os.environ.get('STANDALONE_MODE', 'true').lower() == 'true'
 
@@ -84,6 +82,58 @@ API_KEY = os.environ.get('API_KEY', '').strip() or None  # Treat empty string as
 
 # Routes that do NOT require API key authentication
 PUBLIC_ROUTES = frozenset(['/api/session', '/api/version'])
+PROXIED_ROUTES = frozenset([
+    '/api/session',
+    '/api/version',
+    '/login',
+    '/logout',
+    '/refresh_grades',
+    '/grades',
+    '/export',
+    '/settings',
+    '/overall_average_detail',
+    '/set_blue_grade_preference',
+    '/calculate_goal',
+    '/predict_average',
+    '/calculate_goal_overall',
+    '/predict_average_overall',
+    '/export/csv'
+])
+UPSTREAM_API_BASE = os.environ.get('API_BASE', '').strip().rstrip('/')
+
+
+def proxy_to_upstream():
+    """Forward the current request to the configured upstream API."""
+    if not UPSTREAM_API_BASE:
+        return flask.jsonify({'error': 'API_BASE non configurato'}), 503
+
+    upstream_url = f"{UPSTREAM_API_BASE}{flask.request.path}"
+    forwarded_headers = {
+        key: value
+        for key, value in flask.request.headers.items()
+        if key.lower() not in {'host', 'content-length', 'connection'}
+    }
+
+    try:
+        upstream_response = requests.request(
+            method=flask.request.method,
+            url=upstream_url,
+            params=flask.request.args,
+            data=flask.request.get_data(),
+            headers=forwarded_headers,
+            cookies=flask.request.cookies,
+            allow_redirects=False,
+            timeout=30
+        )
+    except requests.exceptions.RequestException:
+        return flask.jsonify({'error': 'Impossibile raggiungere API upstream'}), 502
+
+    excluded_headers = {'content-length', 'transfer-encoding', 'connection'}
+    response_headers = [
+        (name, value) for name, value in upstream_response.headers.items()
+        if name.lower() not in excluded_headers
+    ]
+    return flask.Response(upstream_response.content, upstream_response.status_code, response_headers)
 
 
 @app.before_request
@@ -97,6 +147,17 @@ def check_api_key():
     - The route does not start with /static/ AND
     - The X-API-Key header is missing or does not match
     """
+    # In proxy mode, forward configured API routes to the external endpoint.
+    if not STANDALONE_MODE and (
+        flask.request.path in PROXIED_ROUTES
+        or flask.request.path.startswith('/subject_detail/')
+    ):
+        if API_KEY and flask.request.method != 'OPTIONS':
+            provided_key = flask.request.headers.get('X-API-Key')
+            if not provided_key or not secrets.compare_digest(provided_key, API_KEY):
+                return flask.jsonify({'error': 'Unauthorized: Invalid or missing API key'}), 401
+        return proxy_to_upstream()
+
     # Skip API key check if no API_KEY is configured (development mode)
     if not API_KEY:
         return None
@@ -156,13 +217,6 @@ MARK_TABLE = {
     "8": 8, "8+": 8.25, "8½": 8.5, "9-": 8.75, "9": 9, "9+": 9.25, "9½": 9.5,
     "10-": 9.75, "10": 10
 }
-
-# Placeholder webidentity for email login when actual identity cannot be extracted
-# This is used when the session is valid but webidentity is not found in the page
-EMAIL_LOGIN_WEBIDENTITY = "_EMAIL_SESSION_"
-
-# User-Agent string for web requests (used for email login)
-DEFAULT_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 
 # Load or generate a persistent SECRET_KEY
 SECRET_KEY_FILE = 'secret_key.txt'
@@ -273,7 +327,7 @@ if STANDALONE_MODE:
         """Serve service worker"""
         return flask.send_from_directory('frontend', 'sw.js')
 else:
-    logger.info("Running in API-ONLY mode - frontend should be deployed separately (e.g., Vercel)")
+    logger.info("Running in PROXY mode - API calls are forwarded to API_BASE")
 
 # =============================================================================
 # API ENDPOINTS
@@ -298,66 +352,36 @@ def api_version():
 def login_route():
     """
     API endpoint for login - returns JSON response.
-    POST /login with form data: user_id, user_pass, login_type
+    POST /login with form data: user_id, user_pass
     Returns: { success: true } or { error: "..." }
     """
     user_id = flask.request.form.get('user_id', '')
     user_pass = flask.request.form.get('user_pass', '')
-    login_type = flask.request.form.get('login_type', 'userid')  # 'userid' or 'email'
     
     # Log session cookie configuration for debugging
     logger.info(f"Session cookie config: Secure={app.config.get('SESSION_COOKIE_SECURE')}, SameSite={app.config.get('SESSION_COOKIE_SAMESITE')}")
     logger.info(f"HTTPS_ENABLED={os.environ.get('HTTPS_ENABLED', 'false')}")
     
     try:
-        if login_type == 'email':
-            # Email-based login
-            login_response = login_email(user_id, user_pass)
-            token = login_response.get("token")
-            webidentity = login_response.get("webidentity", "")
-            
-            if token is None or token == "":
-                return flask.jsonify({'success': False, 'error': 'Token non valido. Riprova.'}), 401
-            
-            # Store token, webidentity and login type in session
-            flask.session['token'] = token
-            flask.session['user_id'] = user_id
-            flask.session['webidentity'] = webidentity
-            flask.session['login_type'] = 'email'
-            
-            # Get grades using email login method (HTML scraping)
-            grades_data = get_grades_email(token, webidentity)
-            grades_avr = calculate_avr(grades_data)
-            
-            # Store grades in session for other pages
-            flask.session['grades_avr'] = grades_avr
-            
-            # Log session initialization (avoid logging sensitive data)
-            logger.info(f"Login success - Session initialized with {len(flask.session)} keys")
-            
-            return flask.jsonify({'success': True}), 200
-        else:
-            # Standard User ID login
-            login_response = login(user_id, user_pass)
-            token = login_response["token"]
-            if token is None or token == "":
-                return flask.jsonify({'success': False, 'error': 'Token non valido. Riprova.'}), 401
-            
-            # Store token and user_id in session
-            flask.session['token'] = token
-            flask.session['user_id'] = user_id
-            flask.session['login_type'] = 'userid'
-            
-            student_id = "".join(filter(str.isdigit, user_id))
-            grades_avr = calculate_avr(get_grades(student_id, token))
-            
-            # Store grades in session for other pages
-            flask.session['grades_avr'] = grades_avr
-            
-            # Log session initialization (avoid logging sensitive data)
-            logger.info(f"Login success - Session initialized with {len(flask.session)} keys")
-            
-            return flask.jsonify({'success': True}), 200
+        login_response = login(user_id, user_pass)
+        token = login_response["token"]
+        if token is None or token == "":
+            return flask.jsonify({'success': False, 'error': 'Token non valido. Riprova.'}), 401
+
+        # Store token and user_id in session
+        flask.session['token'] = token
+        flask.session['user_id'] = user_id
+
+        student_id = "".join(filter(str.isdigit, user_id))
+        grades_avr = calculate_avr(get_grades(student_id, token))
+
+        # Store grades in session for other pages
+        flask.session['grades_avr'] = grades_avr
+
+        # Log session initialization (avoid logging sensitive data)
+        logger.info(f"Login success - Session initialized with {len(flask.session)} keys")
+
+        return flask.jsonify({'success': True}), 200
     except requests.exceptions.HTTPError as e:
         # Handle 422 and other HTTP errors with user-friendly message
         error_code = getattr(e.response, 'status_code', None) if hasattr(e, 'response') else None
@@ -385,23 +409,14 @@ def refresh_grades():
     
     try:
         token = flask.session['token']
-        login_type = flask.session.get('login_type', 'userid')
+        if 'user_id' not in flask.session:
+            return flask.jsonify({'error': 'User ID not found in session'}), 400
         
-        if login_type == 'email':
-            # html scraping
-            webidentity = flask.session.get('webidentity', '')
-            grades_data = get_grades_email(token, webidentity)
-            grades_avr = calculate_avr(grades_data)
-        else:
-            # rest api
-            if 'user_id' not in flask.session:
-                return flask.jsonify({'error': 'User ID not found in session'}), 400
-            
-            user_id = flask.session['user_id']
-            student_id = "".join(filter(str.isdigit, user_id))
-            
-            # fetch grades
-            grades_avr = calculate_avr(get_grades(student_id, token))
+        user_id = flask.session['user_id']
+        student_id = "".join(filter(str.isdigit, user_id))
+        
+        # fetch grades from REST API
+        grades_avr = calculate_avr(get_grades(student_id, token))
         
         # update session
         flask.session['grades_avr'] = grades_avr
@@ -1281,271 +1296,6 @@ def login(user_id, user_pass):
     else:
         response.raise_for_status()
 
-def login_email(email, password):
-    """
-    Login using email credentials via the web authentication endpoint.
-    Returns a dictionary with the PHPSESSID token and user identity.
-    """
-    url = "https://web.spaggiari.eu/auth-p7/app/default/AuthApi4.php?a=aLoginPwd"
-    
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
-        "User-Agent": DEFAULT_USER_AGENT
-    }
-    
-    data = {
-        "cid": "",
-        "uid": email,
-        "pwd": password,
-        "pin": "",
-        "target": ""
-    }
-    
-    session = requests.Session()
-    
-    response = session.post(url, headers=headers, data=data, allow_redirects=False)
-    
-    logger.info(f"Email login response status: {response.status_code}")
-    
-    # Check for HTTP errors - 403/401 indicate invalid credentials
-    if response.status_code in (401, 403):
-        raise requests.exceptions.HTTPError(
-            "Login failed: Invalid credentials", 
-            response=response
-        )
-    
-    phpsessid = session.cookies.get("PHPSESSID")
-    
-    if not phpsessid:
-        phpsessid = response.cookies.get("PHPSESSID")
-    
-    if not phpsessid:
-        set_cookie = response.headers.get("Set-Cookie", "")
-        phpsessid_match = re.search(r'PHPSESSID=([^;]+)', set_cookie)
-        if phpsessid_match:
-            phpsessid = phpsessid_match.group(1)
-    
-    # If we got a redirect (302), follow it to get the session cookie
-    if response.status_code in (302, 301) and not phpsessid:
-        logger.info("Following redirect to get session cookie...")
-        redirect_url = response.headers.get("Location", "")
-        if redirect_url:
-            redirect_response = session.get(redirect_url, headers={"User-Agent": DEFAULT_USER_AGENT})
-            if redirect_response.status_code == 200:
-                phpsessid = session.cookies.get("PHPSESSID")
-    
-    logger.info(f"Session cookie extracted: {bool(phpsessid)}")
-    
-    if phpsessid:
-        # webidentity is the same uid used for login
-        webidentity = email
-        logger.info(f"Login successful for: {email}")
-        return {
-            "token": phpsessid,
-            "webidentity": webidentity,
-            "login_type": "email"
-        }
-    
-    # If no valid session cookie was found, raise an authentication error
-    raise requests.exceptions.HTTPError(
-        "Login failed: Invalid credentials or no session cookie", 
-        response=response
-    )
-
-def extract_webidentity(phpsessid):
-    """
-    Extract the webidentity (student ID) from the session by fetching a page.
-    """
-    url = "https://web.spaggiari.eu/home/app/default/menu_webinfoschool_genitori.php"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Cookie": f"PHPSESSID={phpsessid}"
-    }
-    
-    response = requests.get(url, headers=headers)
-    
-    if response.status_code == 200:
-        # Parse the HTML to extract webidentity
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Try to find user identity from various elements in the page
-        # The webidentity is typically in the format like "S1234567" or similar
-        
-        # Check for identity in scripts or data attributes
-        scripts = soup.find_all('script')
-        for script in scripts:
-            if script.string:
-                # Look for patterns like webidentity or student id
-                match = re.search(r'webidentity["\']?\s*[=:]\s*["\']?([A-Z]\d+)', script.string, re.IGNORECASE)
-                if match:
-                    return match.group(1)
-        
-        # Try to find it in any element's data attribute
-        for elem in soup.find_all(attrs={"data-id": True}):
-            data_id = elem.get("data-id", "")
-            if re.match(r'^[A-Z]\d+$', data_id):
-                return data_id
-        
-        # Check the page content for the school name (indicates successful login)
-        school_span = soup.find('span', class_='scuola')
-        if school_span:
-            # User is logged in - first try to get identity from the grades page
-            grades_identity = extract_webidentity_from_grades(phpsessid)
-            if grades_identity:
-                return grades_identity
-            # If grades page doesn't have materia_id elements (e.g., new student with no grades,
-            # or page structure changed), still return the placeholder since the session is valid.
-            # The school name presence confirms the session is authenticated.
-            logger.info("Session valid (school name found) but no webidentity extracted from grades page")
-            return EMAIL_LOGIN_WEBIDENTITY
-    
-    return None
-
-def extract_webidentity_from_grades(phpsessid):
-    """
-    Extract webidentity from the grades page where it's more likely to be present.
-    """
-    url = "https://web.spaggiari.eu/cvv/app/default/genitori_voti.php"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-        "Cookie": f"PHPSESSID={phpsessid}"
-    }
-    
-    response = requests.get(url, headers=headers)
-    
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Look for student identity in various places
-        scripts = soup.find_all('script')
-        for script in scripts:
-            if script.string:
-                # Look for student ID patterns
-                match = re.search(r'(?:studente|student|alunno|uid|webidentity)["\']?\s*[=:]\s*["\']?([A-Z]?\d+)', script.string, re.IGNORECASE)
-                if match:
-                    return match.group(1)
-        
-        # Check for materia_id which indicates grades are accessible
-        grade_elements = soup.find_all(attrs={"materia_id": True})
-        if grade_elements:
-            # If grades are accessible, the session is valid
-            # Return a placeholder that indicates email login mode
-            return EMAIL_LOGIN_WEBIDENTITY
-    
-    return None
-
-def get_grades_email(phpsessid, webidentity):
-    """
-    Get grades using the email login session by scraping the grades HTML page.
-    Returns grades in the same format as the API for compatibility.
-    """
-    url = "https://web.spaggiari.eu/cvv/app/default/genitori_voti.php"
-    headers = {
-        "User-Agent": DEFAULT_USER_AGENT,
-        "Cookie": f"PHPSESSID={phpsessid}; webidentity={webidentity}"
-    }
-    
-    response = requests.get(url, headers=headers)
-    
-    if response.status_code != 200:
-        response.raise_for_status()
-    
-    soup = BeautifulSoup(response.text, 'html.parser')
-    
-    # Check if we were redirected to login page (session expired)
-    # ClasseViva redirects to login page when session is invalid
-    login_form = soup.find('form', {'id': 'login_form'}) or soup.find('form', {'action': re.compile(r'login|auth', re.IGNORECASE)})
-    if login_form:
-        logger.warning("Session expired: login form detected in grades page")
-        # Create a mock response to raise an appropriate HTTP error
-        error_response = requests.models.Response()
-        error_response.status_code = 401
-        raise requests.exceptions.HTTPError("Session expired", response=error_response)
-    
-    # Also check for common indicators of logged-out state
-    body_text = soup.get_text().lower()
-    if 'accedi' in body_text and 'password' in body_text and 'autenticazione' in body_text:
-        logger.warning("Session expired: authentication page detected")
-        error_response = requests.models.Response()
-        error_response.status_code = 401
-        raise requests.exceptions.HTTPError("Session expired", response=error_response)
-    
-    mark_table = MARK_TABLE
-    
-    grades = []
-    
-    period_tables = soup.find_all('table', attrs={'sessione': True})
-    
-    for table in period_tables:
-        period_code = table.get('sessione', '')
-        period_match = re.search(r'(\d+)', period_code)
-        # The HTML sessione attribute contains the direct period number (1, 2, 3...)
-        # but calculate_avr expects the API format which is offset by 1 (e.g., period 1 = 2)
-        # So we add 1 here to match the API format
-        period_pos = (int(period_match.group(1)) + 1) if period_match else 2
-        
-        tbody = table.find('tbody')
-        if not tbody:
-            continue
-        
-        rows = tbody.find_all('tr')
-        current_subject_id = None
-        current_subject_name = None
-        
-        for row in rows:
-            if 'riga_competenza_default' in row.get('class', []):
-                current_subject_id = row.get('materia_id')
-                continue
-            
-            # Check if this is a grade row
-            if 'riga_materia_componente' in row.get('class', []):
-                cells = row.find_all('td')
-                if cells:
-                    # First cell is subject name
-                    subject_cell = cells[0]
-                    current_subject_name = subject_cell.get_text(strip=True).upper()
-                    
-                    # Find grade cells
-                    grade_cells = row.find_all('td', class_='cella_voto')
-                    for grade_cell in grade_cells:
-                        # Get grade value - use find_all to get only element children (not text nodes)
-                        # This matches JavaScript's element.children behavior
-                        elem_children = grade_cell.find_all(recursive=False)
-                        date_text = ""
-                        grade_text = ""
-                        is_blue = False
-                        
-                        if len(elem_children) >= 2:
-                            date_elem = elem_children[0]
-                            grade_elem = elem_children[1]
-                            
-                            date_text = date_elem.get_text(strip=True)
-                            grade_text = grade_elem.get_text(strip=True)
-                            
-                            # Check if it's a blue grade (oral exam indicator)
-                            is_blue = 'f_reg_voto_dettaglio' in grade_elem.get('class', [])
-                        
-                        evt_id = grade_cell.get('evento_id', 0)
-                        decimal_value = mark_table.get(grade_text, None)
-                        
-                        if decimal_value is not None:
-                            grades.append({
-                                "subjectId": int(current_subject_id) if current_subject_id else 0,
-                                "subjectDesc": current_subject_name or "",
-                                "evtId": int(evt_id) if evt_id else 0,
-                                "evtDate": date_text,
-                                "decimalValue": decimal_value,
-                                "displayValue": grade_text,
-                                "color": "blue" if is_blue else "green",
-                                "periodPos": period_pos,
-                                "periodDesc": f"Periodo {period_pos - 1}",
-                                "componentDesc": "",
-                                "notesForFamily": "",
-                                "teacherName": ""
-                            })
-    
-    return {"grades": grades}
-
 def get_periods(student_id, token):
     url = f"https://web.spaggiari.eu/rest/v1/students/{student_id}/periods"
     headers = {
@@ -1677,4 +1427,3 @@ def calculate_avr(grades):
     
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=8001)
-

@@ -141,43 +141,6 @@ themeToggle.addEventListener('click', () => {
   localStorage.setItem('theme', newTheme);
 });
 
-// Login type tab switching
-function switchLoginTab(tabType) {
-  const tabs = document.querySelectorAll('.login-tab');
-  const loginTypeInput = document.getElementById('login_type');
-  const userIdLabel = document.getElementById('user_id_label');
-  const userIdInput = document.getElementById('user_id');
-  
-  // Update active tab
-  tabs.forEach(tab => {
-    if (tab.getAttribute('data-tab') === tabType) {
-      tab.classList.add('active');
-    } else {
-      tab.classList.remove('active');
-    }
-  });
-  
-  // Update hidden input
-  loginTypeInput.value = tabType;
-  
-  // Update label and placeholder using data attributes
-  if (tabType === 'email') {
-    userIdLabel.textContent = userIdLabel.getAttribute('data-email-label') || 'Email';
-    userIdInput.placeholder = userIdInput.getAttribute('data-email-placeholder') || 'nome@esempio.com';
-    userIdInput.type = 'email';
-  } else {
-    userIdLabel.textContent = userIdLabel.getAttribute('data-userid-label') || 'User ID';
-    userIdInput.placeholder = userIdInput.getAttribute('data-userid-placeholder') || 'G123456789P';
-    userIdInput.type = 'text';
-  }
-  
-  // Clear any error message
-  errorMessage.textContent = '';
-  
-  // Clear the input value when switching tabs
-  userIdInput.value = '';
-}
-
 // Simple form validation and error display
 const form = document.getElementById('loginForm');
 const errorMessage = document.getElementById('errorMessage');
