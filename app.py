@@ -87,6 +87,7 @@ PUBLIC_ROUTES = frozenset(['/api/version'])
 PROXIED_ROUTES = frozenset([
     '/api/version',
     '/api/login',
+    '/api/grades',
     '/login',
     '/logout',
     '/grades',
@@ -102,7 +103,7 @@ PROXIED_ROUTES = frozenset([
 ])
 PROXY_PATH_MAP = {
     '/login': '/api/login',
-    '/grades': '/api/grades',
+    '/api/grades': '/api/grades',
     '/api/version': '/api/health',
 }
 API_BASE = os.environ.get('API_BASE', '').strip().rstrip('/')
