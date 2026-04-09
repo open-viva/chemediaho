@@ -103,7 +103,13 @@ UPSTREAM_API_BASE = os.environ.get('API_BASE', '').strip().rstrip('/')
 
 
 def proxy_to_upstream():
-    """Forward the current request to the configured upstream API."""
+    """Forward proxied API requests to API_BASE.
+    
+    Returns:
+    - 503 when API_BASE is missing
+    - 502 when upstream is unreachable or returns an unexpected content type
+    - Upstream status/body/headers for expected API responses
+    """
     if not UPSTREAM_API_BASE:
         return flask.jsonify({'error': 'API_BASE non configurato'}), 503
 
@@ -125,8 +131,18 @@ def proxy_to_upstream():
             allow_redirects=False,
             timeout=30
         )
-    except requests.exceptions.RequestException:
-        return flask.jsonify({'error': 'Impossibile raggiungere API upstream'}), 502
+    except requests.exceptions.RequestException as exc:
+        logger.warning("Upstream API request failed: %s", exc)
+        return flask.jsonify({'error': 'Impossibile raggiungere API upstream', 'details': str(exc)}), 502
+
+    content_type = upstream_response.headers.get('Content-Type', '')
+    allowed_response = (
+        content_type.startswith('application/json')
+        or content_type.startswith('text/csv')
+    )
+    if not allowed_response:
+        logger.warning("Unexpected upstream content type for %s: %s", flask.request.path, content_type)
+        return flask.jsonify({'error': 'Risposta upstream non valida'}), 502
 
     excluded_headers = {'content-length', 'transfer-encoding', 'connection'}
     response_headers = [
@@ -148,6 +164,7 @@ def check_api_key():
     - The X-API-Key header is missing or does not match
     """
     # In proxy mode, forward configured API routes to the external endpoint.
+    # /subject_detail/<subject_name> is a dynamic route and is matched by prefix.
     if not STANDALONE_MODE and (
         flask.request.path in PROXIED_ROUTES
         or flask.request.path.startswith('/subject_detail/')
