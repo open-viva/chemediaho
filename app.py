@@ -154,15 +154,11 @@ def proxy_to_upstream():
         response.status_code = upstream_response.status_code
         return response
 
-    disposition = upstream_response.headers.get('Content-Disposition', 'attachment; filename=voti.csv')
-    response = flask.send_file(
-        io.BytesIO(upstream_response.content),
-        mimetype='text/csv',
-        as_attachment=True,
-        download_name='voti.csv'
-    )
+    csv_content = upstream_response.content.decode('utf-8', errors='replace')
+    response = flask.Response(csv_content, mimetype='text/csv')
     response.status_code = upstream_response.status_code
-    response.headers['Content-Disposition'] = disposition
+    response.headers['Content-Disposition'] = 'attachment; filename=voti.csv'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
     return response
 
 
@@ -360,7 +356,7 @@ if STANDALONE_MODE:
 else:
     logger.info(
         "Running in PROXY mode - API calls are forwarded to API_BASE (%s)",
-        "configured" if API_BASE else "missing"
+        API_BASE if API_BASE else "missing"
     )
 
 # =============================================================================
