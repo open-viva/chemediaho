@@ -1343,7 +1343,7 @@ def get_grades(student_id, token):
 def _get_effective_grades(grades_list):
     """Compute effective grade values by averaging component grades of the same evaluation.
     
-    Grades with non-empty componentDesc that share the same evtDate are components
+    Grades with non-empty componentDesc that share the same evtId (fallback: evtDate) are components
     of the same evaluation (e.g., Scritto + Orale). These are averaged into a single
     effective grade so that multi-component evaluations count as one grade in averages.
     Standalone grades (empty componentDesc) are kept as-is.
@@ -1358,10 +1358,13 @@ def _get_effective_grades(grades_list):
     
     for g in grades_list:
         if g.get('componentDesc'):
-            key = g['evtDate']
-            if key not in component_groups:
-                component_groups[key] = []
-            component_groups[key].append(g['decimalValue'])
+            key = g.get('evtId') or g.get('evtDate')
+            if key:
+                if key not in component_groups:
+                    component_groups[key] = []
+                component_groups[key].append(g['decimalValue'])
+            else:
+                standalone.append(g['decimalValue'])
         else:
             standalone.append(g['decimalValue'])
     
@@ -1383,7 +1386,7 @@ def calculate_avr(grades):
             else:
                 period = "Periodo sconosciuto"
         # Determine decimal value: use API value, or fall back to displayValue + MARK_TABLE
-        decimal_value = grade["decimalValue"]
+        decimal_value = grade.get("decimalValue")
         if decimal_value is None:
             display_value = grade.get("displayValue", "")
             decimal_value = MARK_TABLE.get(display_value, None)
@@ -1397,20 +1400,24 @@ def calculate_avr(grades):
         # Take all grades from Spaggiari as-is without filtering
         if period not in grades_avr:
             grades_avr[period] = {}
-        if grades_avr[period].get(grade["subjectDesc"]) is None:
-            grades_avr[period][grade["subjectDesc"]] = {"count": 0, "avr": 0, "grades": []}
+        subject = str(grade.get("subjectDesc") or grade.get("subjectCode") or "Materia sconosciuta").strip()
+        if not subject:
+            subject = "Materia sconosciuta"
+        if grades_avr[period].get(subject) is None:
+            grades_avr[period][subject] = {"count": 0, "avr": 0, "grades": []}
         
-        grades_avr[period][grade["subjectDesc"]]["count"] += 1
+        grades_avr[period][subject]["count"] += 1
         
         # append grade as a dictionary with additional fields
-        grades_avr[period][grade["subjectDesc"]]["grades"].append({
+        grades_avr[period][subject]["grades"].append({
             "decimalValue": decimal_value,
             "displayValue": grade.get("displayValue", ""),
-            "evtDate": grade["evtDate"],
-            "notesForFamily": grade["notesForFamily"],
-            "componentDesc": grade["componentDesc"],
-            "teacherName": grade["teacherName"],
-            "isBlue": grade["color"] == "blue"
+            "evtId": grade.get("evtId"),
+            "evtDate": grade.get("evtDate", ""),
+            "notesForFamily": grade.get("notesForFamily", ""),
+            "componentDesc": grade.get("componentDesc", ""),
+            "teacherName": grade.get("teacherName", ""),
+            "isBlue": str(grade.get("color", "")).lower() == "blue"
         })
     
     # calculate average per subject
