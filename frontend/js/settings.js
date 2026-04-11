@@ -42,7 +42,7 @@ function showNotification(message, type = 'success') {
 // Load version from API
 async function loadVersion() {
   try {
-    const response = await apiFetch('/settings');
+    const response = await apiFetch('/api/chemediaho/settings');
     if (response.ok) {
       const data = await response.json();
       const versionEl = document.getElementById('appVersion');
@@ -70,7 +70,7 @@ if (includeBlueGradesToggle) {
     
     try {
       // Notify backend about the preference change using apiFetch
-      const response = await apiFetch('/set_blue_grade_preference', {
+      const response = await apiFetch('/api/chemediaho/set_blue_grade_preference', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
