@@ -1360,7 +1360,7 @@ def _get_effective_grades(grades_list):
         if g.get('componentDesc'):
             evt_id = g.get('evtId')
             key = evt_id if evt_id is not None else g.get('evtDate')
-            if key:
+            if key is not None and key != "":
                 if key not in component_groups:
                     component_groups[key] = []
                 component_groups[key].append(g['decimalValue'])
