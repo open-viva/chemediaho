@@ -1375,9 +1375,13 @@ def calculate_avr(grades):
     grades_avr = {}
     for grade in grades["grades"]:
         # Use the period name provided by openviva api directly.
-        period = str(grade.get("periodLabel") or grade.get("periodDesc") or grade.get("periodPos") or "").strip()
+        period = str(grade.get("periodLabel") or grade.get("periodDesc") or "").strip()
         if not period:
-            period = "Periodo sconosciuto"
+            period_pos = grade.get("periodPos")
+            if period_pos is not None:
+                period = f"Periodo {period_pos}"
+            else:
+                period = "Periodo sconosciuto"
         # Determine decimal value: use API value, or fall back to displayValue + MARK_TABLE
         decimal_value = grade["decimalValue"]
         if decimal_value is None:
