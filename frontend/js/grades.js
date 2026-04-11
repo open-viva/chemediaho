@@ -202,7 +202,7 @@ if (logoutBtn) {
 // Fetch grades data on page load
 async function loadGrades() {
   try {
-    const response = await apiFetch('/grades');
+    const response = await apiFetch('/api/grades');
     
     if (!response.ok) {
       if (response.status === 401) {
