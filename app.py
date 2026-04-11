@@ -1358,7 +1358,8 @@ def _get_effective_grades(grades_list):
     
     for g in grades_list:
         if g.get('componentDesc'):
-            key = g.get('evtId') or g.get('evtDate')
+            evt_id = g.get('evtId')
+            key = evt_id if evt_id is not None else g.get('evtDate')
             if key:
                 if key not in component_groups:
                     component_groups[key] = []
