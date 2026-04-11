@@ -8,7 +8,7 @@ let gradesData = {};
 // Load data from API
 async function loadOverallData() {
   try {
-    const response = await apiFetch('/overall_average_detail');
+    const response = await apiFetch('/api/chemediaho/overall_average_detail');
     
     if (!response.ok) {
       if (response.status === 401) {
@@ -245,7 +245,7 @@ smartSuggestionsForm.addEventListener('submit', async function(e) {
   calculateBtn.textContent = 'Calcolo in corso...';
 
   try {
-    const response = await apiFetch('/calculate_goal_overall', {
+    const response = await apiFetch('/api/chemediaho/calculate_goal_overall', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -367,7 +367,7 @@ predictionsForm.addEventListener('submit', async function(e) {
   predictBtn.textContent = 'Calcolo in corso...';
 
   try {
-    const response = await apiFetch('/predict_average_overall', {
+    const response = await apiFetch('/api/chemediaho/predict_average_overall', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
