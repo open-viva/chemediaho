@@ -104,6 +104,7 @@ PROXIED_ROUTES = frozenset([
 ])
 PROXY_PATH_MAP = {
     '/login': '/api/login',
+    '/grades': '/api/grades',
     '/api/grades': '/api/grades',
     '/api/version': '/api/health',
 }
@@ -157,6 +158,7 @@ def proxy_to_upstream():
 
     upstream_path = PROXY_PATH_MAP.get(flask.request.path, flask.request.path)
     upstream_url = f"{API_BASE}{upstream_path}"
+    is_grades_upstream = upstream_path == '/api/grades'
     forwarded_headers = {
         key: value
         for key, value in flask.request.headers.items()
@@ -201,7 +203,7 @@ def proxy_to_upstream():
                 logger.warning("Missing version field in OpenViva API health response")
                 return flask.jsonify({'error': 'Campo version mancante nella risposta /api/health di openviva api'}), 502
             payload = {'version': version}
-        elif flask.request.path == '/api/grades':
+        elif is_grades_upstream:
             payload = _normalize_openviva_grades_payload(payload)
         response = flask.jsonify(payload)
         response.status_code = upstream_response.status_code
