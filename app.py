@@ -447,6 +447,7 @@ def logout():
     flask.session.clear()
     return flask.jsonify({'success': True}), 200
 
+@app.route('/api/grades')
 @app.route('/grades')
 def grades_page():
     """API endpoint for grades - returns JSON data."""
