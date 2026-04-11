@@ -61,7 +61,7 @@ if (csvExportForm) {
     `;
     
     try {
-      const response = await apiFetch('/export/csv', {
+      const response = await apiFetch('/api/chemediaho/export/csv', {
         method: 'POST'
       });
       
@@ -99,7 +99,7 @@ if (csvExportForm) {
 // Check session on page load
 async function checkSession() {
   try {
-    const response = await apiFetch('/export');
+    const response = await apiFetch('/api/chemediaho/export');
     if (!response.ok) {
       // Not authenticated - redirect to login
       navigateTo('index.html');
