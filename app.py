@@ -1374,14 +1374,10 @@ def _get_effective_grades(grades_list):
 def calculate_avr(grades):
     grades_avr = {}
     for grade in grades["grades"]:
-        # ClasseViva API returns periodPos values that are offset by 1 from user-facing period numbers
-        # For example, what users call "Periodo 2" has periodPos=3 in the API
-        # We decrement by 1 to match user expectations
-        period_pos = grade["periodPos"] - 1
-        # ensure period is at least 1
-        if period_pos < 1:
-            period_pos = 1
-        period = str(period_pos)
+        # Use the period name provided by openviva api directly.
+        period = str(grade.get("periodLabel") or grade.get("periodDesc") or grade.get("periodPos") or "").strip()
+        if not period:
+            period = "Periodo sconosciuto"
         # Determine decimal value: use API value, or fall back to displayValue + MARK_TABLE
         decimal_value = grade["decimalValue"]
         if decimal_value is None:

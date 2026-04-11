@@ -5,6 +5,11 @@
 // Global state - will be loaded from API
 let gradesData = {};
 
+function formatPeriodLabel(period) {
+  const value = String(period || '').trim();
+  return value.toLowerCase().includes('periodo') ? value : `Periodo ${value}`;
+}
+
 // Load data from API
 async function loadOverallData() {
   try {
@@ -56,7 +61,7 @@ function populateSubjectSelector() {
   
   for (const period of Object.keys(gradesData).filter(k => k !== 'all_avr').sort()) {
     for (const subject of Object.keys(gradesData[period]).filter(k => k !== 'period_avr')) {
-      options += `<option value="${subject}|${period}">${subject} (Periodo ${period})</option>`;
+      options += `<option value="${subject}|${period}">${subject} (${formatPeriodLabel(period)})</option>`;
     }
   }
   
@@ -103,7 +108,7 @@ function createOverallTrendChart() {
 
   // Prepare data from all periods
   const periods = Object.keys(gradesData).filter(key => key !== 'all_avr').sort();
-  const periodLabels = periods.map(p => `Periodo ${p}`);
+  const periodLabels = periods.map(p => formatPeriodLabel(p));
   const periodAverages = periods.map(p => gradesData[p].period_avr);
 
   new Chart(ctx, {

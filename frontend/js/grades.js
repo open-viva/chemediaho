@@ -39,6 +39,11 @@ function getGradeClass(value) {
   return 'fail';
 }
 
+function formatPeriodLabel(period) {
+  const value = String(period || '').trim();
+  return value.toLowerCase().includes('periodo') ? value : `Periodo ${value}`;
+}
+
 // Animate circle progress bars
 function animateCircle(circle, targetValue) {
   const circumference = 327; // 2 * PI * r where r = 52
@@ -75,7 +80,7 @@ function renderGrades(gradesData) {
     html += `
       <div class="period-section">
         <div class="period-header">
-          <h2 class="period-title">Periodo ${period}</h2>
+          <h2 class="period-title">${formatPeriodLabel(period)}</h2>
           <span class="period-average ${getGradeClass(periodAvr)}">${periodAvr.toFixed(2)}</span>
         </div>
     `;

@@ -6,6 +6,11 @@
 let gradesData = {};
 let subjectName = '';
 
+function formatPeriodLabel(period) {
+  const value = String(period || '').trim();
+  return value.toLowerCase().includes('periodo') ? value : `Periodo ${value}`;
+}
+
 // Get subject name from URL parameter
 function getSubjectFromURL() {
   const params = new URLSearchParams(window.location.search);
@@ -107,7 +112,7 @@ function renderGradesByPeriod() {
       html += `
         <div style="margin-bottom: 20px;">
           <div style="text-align: center; margin-bottom: 12px;">
-            <span class="period-badge" style="font-size: 14px;">Periodo ${period}</span>
+            <span class="period-badge" style="font-size: 14px;">${formatPeriodLabel(period)}</span>
           </div>
           <div class="grades-list">
       `;
@@ -144,7 +149,7 @@ function populatePeriodSelectors() {
   
   const options = periods
     .filter(p => gradesData[p][subjectName])
-    .map(p => `<option value="${p}">Periodo ${p}</option>`)
+    .map(p => `<option value="${p}">${formatPeriodLabel(p)}</option>`)
     .join('');
   
   if (periodSelect) {
