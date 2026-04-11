@@ -316,6 +316,7 @@ def _parse_display_value_decimal(display_value):
         return mapped_value
 
     if NUMERIC_DISPLAY_PATTERN.fullmatch(value):
+        # openviva api displayValue may use locale decimal comma (e.g. "8,5")
         try:
             return float(value.replace(',', '.'))
         except ValueError:
