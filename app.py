@@ -109,6 +109,40 @@ PROXY_PATH_MAP = {
 API_BASE = os.environ.get('API_BASE', '').strip().rstrip('/')
 
 
+def _extract_grade_entries(payload):
+    """Extract grade entries from openviva api payloads with different shapes."""
+    if isinstance(payload, list):
+        return [item for item in payload if isinstance(item, dict)]
+
+    if not isinstance(payload, dict):
+        return []
+
+    direct_candidates = [payload.get('grades'), payload.get('data'), payload.get('items')]
+    for candidate in direct_candidates:
+        if isinstance(candidate, list):
+            return [item for item in candidate if isinstance(item, dict)]
+        if isinstance(candidate, dict):
+            nested_candidates = [candidate.get('grades'), candidate.get('data'), candidate.get('items')]
+            for nested in nested_candidates:
+                if isinstance(nested, list):
+                    return [item for item in nested if isinstance(item, dict)]
+
+    return []
+
+
+def _normalize_openviva_grades_payload(payload):
+    """Map openviva api grades payload to the frontend historical format."""
+    if isinstance(payload, dict) and 'all_avr' in payload:
+        return payload
+
+    grade_entries = _extract_grade_entries(payload)
+    if not grade_entries:
+        logger.warning("No grade entries found in openviva api payload shape")
+        return {"all_avr": 0}
+
+    return calculate_avr({"grades": grade_entries})
+
+
 def proxy_to_upstream():
     """Forward proxied API requests (GET/POST/OPTIONS, etc.) to API_BASE.
     
@@ -166,6 +200,8 @@ def proxy_to_upstream():
                 logger.warning("Missing version field in OpenViva API health response")
                 return flask.jsonify({'error': 'Campo version mancante nella risposta /api/health di openviva api'}), 502
             payload = {'version': version}
+        elif flask.request.path == '/api/grades':
+            payload = _normalize_openviva_grades_payload(payload)
         response = flask.jsonify(payload)
         response.status_code = upstream_response.status_code
         return response
