@@ -30,6 +30,7 @@ import secrets
 import csv
 import io
 import logging
+import re
 from datetime import datetime
 from flask_cors import CORS
 
@@ -300,6 +301,27 @@ MARK_TABLE = {
     "8": 8, "8+": 8.25, "8½": 8.5, "9-": 8.75, "9": 9, "9+": 9.25, "9½": 9.5,
     "10-": 9.75, "10": 10
 }
+
+NUMERIC_DISPLAY_PATTERN = re.compile(r'^\d+(?:[.,]\d+)?$')
+
+
+def _parse_display_value_decimal(display_value):
+    """Convert display grade notation to decimal value."""
+    value = str(display_value or "").strip()
+    if not value:
+        return None
+
+    mapped_value = MARK_TABLE.get(value)
+    if mapped_value is not None:
+        return mapped_value
+
+    if NUMERIC_DISPLAY_PATTERN.fullmatch(value):
+        try:
+            return float(value.replace(',', '.'))
+        except ValueError:
+            return None
+
+    return None
 
 # Load or generate a persistent SECRET_KEY
 SECRET_KEY_FILE = 'secret_key.txt'
@@ -1426,7 +1448,7 @@ def calculate_avr(grades):
         decimal_value = grade.get("decimalValue")
         if decimal_value is None:
             display_value = grade.get("displayValue", "")
-            decimal_value = MARK_TABLE.get(display_value, None)
+            decimal_value = _parse_display_value_decimal(display_value)
             if decimal_value is not None:
                 logger.debug(f"Recovered grade via displayValue '{display_value}' -> {decimal_value}")
             elif display_value:
