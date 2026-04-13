@@ -44,6 +44,120 @@ function formatPeriodLabel(period) {
   return value.toLowerCase().includes('periodo') ? value : `Periodo ${value}`;
 }
 
+function parseGradeDecimalValue(grade) {
+  if (!grade || typeof grade !== 'object') return null;
+  const numericPattern = /^\d+(?:[.,]\d+)?$/;
+
+  if (typeof grade.decimalValue === 'number' && Number.isFinite(grade.decimalValue)) {
+    return grade.decimalValue;
+  }
+
+  if (typeof grade.decimalValue === 'string') {
+    const cleanedDecimal = grade.decimalValue.trim();
+    if (numericPattern.test(cleanedDecimal)) {
+      const parsedDecimal = Number.parseFloat(cleanedDecimal.replace(',', '.'));
+      if (Number.isFinite(parsedDecimal)) return parsedDecimal;
+    }
+  }
+
+  if (typeof grade.displayValue === 'string') {
+    const cleanedDisplay = grade.displayValue.trim();
+    if (numericPattern.test(cleanedDisplay)) {
+      const parsedDisplay = Number.parseFloat(cleanedDisplay.replace(',', '.'));
+      if (Number.isFinite(parsedDisplay)) return parsedDisplay;
+    }
+  }
+
+  return null;
+}
+
+function getEffectiveGrades(gradesList) {
+  const standalone = [];
+  const componentGroups = {};
+
+  for (const grade of gradesList || []) {
+    if (grade.componentDesc) {
+      const evtId = grade.evtId;
+      const key = evtId !== null && evtId !== undefined ? evtId : grade.evtDate;
+      if (key !== null && key !== undefined && key !== '') {
+        if (!componentGroups[key]) componentGroups[key] = [];
+        componentGroups[key].push(grade.decimalValue);
+      } else {
+        standalone.push(grade.decimalValue);
+      }
+    } else {
+      standalone.push(grade.decimalValue);
+    }
+  }
+
+  const effective = [...standalone];
+  for (const values of Object.values(componentGroups)) {
+    effective.push(values.reduce((sum, value) => sum + value, 0) / values.length);
+  }
+
+  return effective;
+}
+
+function normalizeOpenvivaGradesPayload(payload) {
+  if (!payload || typeof payload !== 'object') return { all_avr: 0 };
+  if (Object.prototype.hasOwnProperty.call(payload, 'all_avr')) return payload;
+  if (!Array.isArray(payload.grades)) return payload;
+
+  const normalized = {};
+
+  for (const rawGrade of payload.grades) {
+    if (!rawGrade || typeof rawGrade !== 'object') continue;
+
+    const decimalValue = parseGradeDecimalValue(rawGrade);
+    if (decimalValue === null) continue;
+
+    const period = String(rawGrade.periodLabel || rawGrade.periodDesc || (rawGrade.periodPos !== undefined && rawGrade.periodPos !== null ? `Periodo ${rawGrade.periodPos}` : 'Periodo sconosciuto')).trim();
+    const subject = String(rawGrade.subjectDesc || rawGrade.subjectCode || 'Materia sconosciuta').trim() || 'Materia sconosciuta';
+
+    if (!normalized[period]) normalized[period] = {};
+    if (!normalized[period][subject]) normalized[period][subject] = { count: 0, avr: 0, grades: [] };
+
+    normalized[period][subject].count += 1;
+    normalized[period][subject].grades.push({
+      decimalValue,
+      displayValue: rawGrade.displayValue || '',
+      evtId: rawGrade.evtId,
+      evtDate: rawGrade.evtDate || '',
+      notesForFamily: rawGrade.notesForFamily || '',
+      componentDesc: rawGrade.componentDesc || '',
+      teacherName: rawGrade.teacherName || '',
+      isBlue: String(rawGrade.color || '').toLowerCase() === 'blue'
+    });
+  }
+
+  for (const period of Object.keys(normalized)) {
+    const periodEffective = [];
+    for (const subject of Object.keys(normalized[period])) {
+      const subjectEffective = getEffectiveGrades(normalized[period][subject].grades);
+      normalized[period][subject].avr = subjectEffective.length
+        ? subjectEffective.reduce((sum, value) => sum + value, 0) / subjectEffective.length
+        : 0;
+      periodEffective.push(...subjectEffective);
+    }
+    normalized[period].period_avr = periodEffective.length
+      ? periodEffective.reduce((sum, value) => sum + value, 0) / periodEffective.length
+      : 0;
+  }
+
+  const allEffective = [];
+  for (const period of Object.keys(normalized)) {
+    for (const [subject, subjectData] of Object.entries(normalized[period])) {
+      if (subject === 'period_avr') continue;
+      allEffective.push(...getEffectiveGrades(subjectData.grades));
+    }
+  }
+  normalized.all_avr = allEffective.length
+    ? allEffective.reduce((sum, value) => sum + value, 0) / allEffective.length
+    : 0;
+
+  return normalized;
+}
+
 // Animate circle progress bars
 function animateCircle(circle, targetValue) {
   const circumference = 327; // 2 * PI * r where r = 52
@@ -219,7 +333,8 @@ async function loadGrades() {
     }
     
     const data = await response.json();
-    renderGrades(data);
+    const normalizedData = normalizeOpenvivaGradesPayload(data);
+    renderGrades(normalizedData);
   } catch (error) {
     console.error('Error loading grades:', error);
     document.getElementById('gradesContainer').innerHTML = `
