@@ -1,3 +1,6 @@
+import https from 'https';
+import crypto from 'crypto';
+
 const TARGET_BASE = "https://web.spaggiari.eu";
 
 const FORWARD_REQUEST_HEADERS = ["cookie", "content-type", "content-length"];
@@ -52,7 +55,7 @@ export default async function handler(req, res) {
   for (const h of FORWARD_REQUEST_HEADERS) {
     if (req.headers[h]) forwardHeaders[h] = req.headers[h];
   }
-
+  
   let body = undefined;
   if (["POST", "PUT", "PATCH"].includes(req.method)) {
     body = await new Promise((resolve) => {
@@ -62,12 +65,29 @@ export default async function handler(req, res) {
     });
   }
 
+  const customAgent = new https.Agent({
+    ciphers: [
+      'TLS_AES_256_GCM_SHA384',
+      'TLS_CHACHA20_POLY1305_SHA256',
+      'TLS_AES_128_GCM_SHA256',
+      'ECDHE-ECDSA-AES256-GCM-SHA384',
+      'ECDHE-RSA-AES256-GCM-SHA384',
+      'ECDHE-ECDSA-CHACHA20-POLY1305',
+      'ECDHE-RSA-CHACHA20-POLY1305',
+      'ECDHE-ECDSA-AES128-GCM-SHA256',
+      'ECDHE-RSA-AES128-GCM-SHA256'
+    ].join(':'),
+    honorCipherOrder: true,
+    minVersion: 'TLSv1.3',
+  });
+
   try {
     const upstream = await fetch(targetUrl, {
       method: req.method,
       headers: forwardHeaders,
       body,
       redirect: "manual",
+      dispatcher: customAgent 
     });
 
     for (const h of FORWARD_RESPONSE_HEADERS) {
