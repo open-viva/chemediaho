@@ -50,135 +50,21 @@ il tutto tramite una **ui chiara**, pulita e mobile-friendly.
 
 ---
 
-## 🎛️ modalità di utilizzo
+## 🚧 rewriting in corso
 
-l'app supporta **due modalità**:
+> [!WARNING]
+> **il progetto è attualmente in fase di riscrittura.**
 
-### 1️⃣ docker all-in-one (consigliata)
+stiamo lavorando a una **nuova gestione degli endpoint** di classeviva, più robusta e manutenibile, e rendere l'app più snella.
 
-tutto in un unico container: frontend + api.
+durante questa fase:
+- 🔒 l'installazione tramite docker e le istruzioni di deploy **non sono aggiornate**
+- 📦 le release attuali potrebbero **non funzionare correttamente**
+- 🛠️ la struttura del progetto è soggetta a **cambiamenti significativi**
 
-- ✅ semplice da configurare
-- ✅ ideale per uso locale/domestico
-- ✅ basta un `docker compose up`
+tieni d'occhio la repo per aggiornamenti, appena il rewriting sarà stabile, le istruzioni di installazione verranno ripristinate e aggiornate.
 
-### 2️⃣ vercel + api locale (avanzata)
-
-frontend su vercel, api locale con tunnel https.
-
-- ✅ frontend accessibile ovunque
-- ✅ api su ip residenziale (bypass akamai waf)
-- ✅ richiede ngrok/cloudflare tunnel
-
----
-
-## 1 - 🐳 installazione con docker (consigliata)
-
-modalità **all-in-one**: frontend + api nello stesso container.
-
-### prerequisiti
-
-* docker & docker compose
-  👉 [https://docs.docker.com/engine/install/](https://docs.docker.com/engine/install/)
-
-### scarica il `docker-compose.yml`
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/gablilli/chemediaho/refs/heads/main/docker-compose.yml -o docker-compose.yml
-```
-
-### avvia il container
-
-```bash
-docker compose up -d
-```
-
-l'app sarà disponibile su **porta 8001**.
-apri 👉 **[http://localhost:8001](http://localhost:8001)**
-
-## 2 - 🌐 vercel + api locale
-
-per utenti avanzati: frontend su vercel, api locale.
-
-### perché questa modalità?
-
-- classeviva usa **akamai waf** che blocca richieste da datacenter
-- l'api deve girare su un **ip residenziale** (casa tua)
-- il frontend può stare su vercel (con tutti i benefici che ne conseguono)
-
-### setup
-
-#### 1. avvia l'api locale
-
-```bash
-STANDALONE_MODE=false HTTPS_ENABLED=true API_KEY=tua-chiave-segreta python app.py
-```
-
-> [!NOTE]
-> L'```API_KEY``` non è obbligatoria, ma consigliata.
-> È molto importante che ```HTTPS_ENABLED``` sia true.
-
-#### 2. esponi l'api con tunnel https
-
-```bash
-ngrok http 8001
-# oppure cloudflare tunnel
-```
-
-#### 3. deploya su vercel
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fgablilli%2Fchemediaho%2Ftree%2Fmain%2Ffrontend&env=API_BASE,API_KEY&project-name=mychemediaho&repository-name=mychemediaho)
-
----
-
-## 🔑 chiave segreta e sessioni
-
-* generata automaticamente al primo avvio (`secret_key.txt`)
-* permessi **600**
-* persistita via volume docker
-
-⚠️ **sicurezza**
-
-* proteggi l'accesso al file
-* in produzione usa `secret_key` o secret manager
-* supporto a **docker secrets** incluso
-
-esempio:
-
-```yaml
-    environment:
-      - SECRET_KEY_FILE=/run/secrets/flask_secret
-    secrets:
-      - flask_secret
-
-secrets:
-  flask_secret:
-    external: true
-```
-
----
-
-## 🛠️ risoluzione problemi
-
-### 401 dopo login (cross-origin)
-
-se usi vercel + api locale e ricevi 401 dopo il login:
-
-1. assicurati che `HTTPS_ENABLED=true` sia impostato
-2. usa un tunnel https (ngrok, cloudflare)
-3. verifica che `API_BASE` in `config.runtime.js` sia corretto
-
-### controlla i log
-
-```bash
-docker logs chemediaho
-```
-
-### altri problemi
-
-* verifica credenziali classeviva
-* assicurati che la porta 8001 sia aperta
-* apri una issue
+nel frattempo, puoi seguire i progressi guardando i [commit recenti](../../commits).
 
 ---
 
