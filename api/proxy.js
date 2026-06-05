@@ -36,10 +36,18 @@ export default async function handler(req, res) {
 
   const forwardHeaders = {
     "Host": "web.spaggiari.eu",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
-    "Accept": "*/*",
-    "Accept-Language": "it-IT,it;q=0.8,en-US;q=0.5,en;q=0.3",
-    "Connection": "keep-alive"
+    "User-Agent": req.headers["user-agent"] || "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Origin": "https://web.spaggiari.eu",
+    "Referer": "https://web.spaggiari.eu/",
+    "Sec-Fetch-Dest": "empty",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Windows"',
   };
 
   for (const h of FORWARD_REQUEST_HEADERS) {
