@@ -1,7 +1,7 @@
-const WORKER_BASE  = "https://cheapiho.gabrx.eu.org/v3/";
+const WORKER_BASE  = "https://cheapiho.gabrx.eu.org/v3";
 const AUTH_PATH    = "/auth-p7/app/default/AuthApi4.php?a=aLoginPwd";
 const BASE_API     = "/rest/w1";
-const GRADES_YEAR  = 26; // da aggiornare ogni anno scolastico, penso
+const GRADES_YEAR  = 26; // da ggiornare ogni anno scolastico, penso
 
 const state = {
   cookies:   null,   // { PHPSESSID, webidentity, webrole }
@@ -237,6 +237,111 @@ function renderGrades(avr) {
       e.stopPropagation();
       openGradeModal(JSON.parse(chip.dataset.grade));
     });
+  });
+}
+
+function buildChart(container, grades) {
+  if (grades.length < 1) return;
+
+  const W = 300, H = 110;
+  const PAD = { top: 12, right: 16, bottom: 20, left: 26 };
+  const innerW = W - PAD.left - PAD.right;
+  const innerH = H - PAD.top  - PAD.bottom;
+
+  const vals  = grades.map(g => g.decimalValue);
+  const minV  = Math.max(1, Math.floor(Math.min(...vals)) - 1);
+  const maxV  = Math.min(10, Math.ceil(Math.max(...vals))  + 1);
+
+  const xScale = i => PAD.left + (grades.length < 2 ? innerW / 2 : (i / (grades.length - 1)) * innerW);
+  const yScale = v => PAD.top  + innerH - ((v - minV) / (maxV - minV)) * innerH;
+
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const lineColor = avg >= 6.5
+    ? "var(--green)"
+    : avg >= 5.5 ? "var(--yellow)" : "var(--red)";
+
+  function smoothPath(pts) {
+    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
+    let d = `M ${pts[0].x} ${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      const cp1x = pts[i - 1].x + (pts[i].x - pts[i - 1].x) / 2;
+      const cp1y = pts[i - 1].y;
+      const cp2x = pts[i].x   - (pts[i].x - pts[i - 1].x) / 2;
+      const cp2y = pts[i].y;
+      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${pts[i].x} ${pts[i].y}`;
+    }
+    return d;
+  }
+
+  const pts = grades.map((g, i) => ({ x: xScale(i), y: yScale(g.decimalValue) }));
+  const linePath = smoothPath(pts);
+
+  const areaPath = linePath +
+    ` L ${pts[pts.length - 1].x} ${PAD.top + innerH}` +
+    ` L ${pts[0].x} ${PAD.top + innerH} Z`;
+
+  let gridLines = "", yLabels = "";
+  for (let v = Math.ceil(minV); v <= Math.floor(maxV); v++) {
+    const y = yScale(v);
+    const isSuff = v === 6;
+    gridLines += `<line class="chart-grid" x1="${PAD.left}" x2="${W - PAD.right}" y1="${y}" y2="${y}"
+      ${isSuff ? 'stroke-dasharray="none" style="stroke:var(--muted);opacity:.4"' : ""}/>`;
+    yLabels += `<text class="chart-y-label" x="${PAD.left - 5}" y="${y + 3}" text-anchor="end">${v}</text>`;
+  }
+
+  let dots = "";
+  grades.forEach((g, i) => {
+    const gc = g.isBlue ? "var(--blue)" : (g.decimalValue >= 6.5 ? "var(--green)" : g.decimalValue >= 5.5 ? "var(--yellow)" : "var(--red)");
+    dots += `<circle class="chart-dot"
+      cx="${pts[i].x}" cy="${pts[i].y}"
+      fill="${gc}"
+      data-val="${escAttr(g.displayValue || String(g.decimalValue))}"
+      data-date="${escAttr(g.evtDate || "")}"
+    />`;
+  });
+
+  const gid = "cg" + Math.random().toString(36).slice(2, 7);
+
+  const svgMarkup = `
+    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="${lineColor}" stop-opacity=".9"/>
+          <stop offset="100%" stop-color="${lineColor}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      ${gridLines}
+      ${yLabels}
+      <path class="chart-area" d="${areaPath}" fill="url(#${gid})"/>
+      <path class="chart-line" d="${linePath}" stroke="${lineColor}"/>
+      ${dots}
+    </svg>
+    <div class="chart-tooltip" id="chartTip"></div>`;
+
+  container.innerHTML = svgMarkup;
+
+  const tip = container.querySelector("#chartTip");
+  container.querySelectorAll(".chart-dot").forEach((dot, i) => {
+    function showTip(e) {
+      const val  = dot.dataset.val;
+      const date = dot.dataset.date;
+      tip.innerHTML = `<strong>${val}</strong><span class="tt-date">${date}</span>`;
+      tip.classList.add("show");
+
+      const rect = container.getBoundingClientRect();
+      const cx   = pts[i].x / W * rect.width;
+      const cy   = pts[i].y / H * rect.height;
+      let left = cx - tip.offsetWidth / 2;
+      left = Math.max(0, Math.min(left, rect.width - tip.offsetWidth - 4));
+      tip.style.left = left + "px";
+      tip.style.top  = (cy - 42) + "px";
+    }
+    function hideTip() { tip.classList.remove("show"); }
+
+    dot.addEventListener("mouseenter", showTip);
+    dot.addEventListener("mouseleave", hideTip);
+    dot.addEventListener("touchstart", e => { e.preventDefault(); showTip(e); }, { passive: false });
+    dot.addEventListener("touchend",   hideTip);
   });
 }
 
