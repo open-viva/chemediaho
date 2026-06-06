@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/open-viva/chemediaho/main/frontend/icons/icon-192.png" width="120" alt="che media ho? logo">
+  <img src="https://raw.githubusercontent.com/open-viva/chemediaho/main/assets/icons/icon-192.png" width="120" alt="che media ho? logo">
 </p>
 
 <h1 align="center">📊 che media ho?</h1>
