@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f0f" />
+  <meta name="description" content="Calcola la media dei voti ClasseViva" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="che media ho?" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="/assets/icons/icon-192.png" />
+  <title>che media ho?</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div id="app">
+  <header class="topbar" id="topbar">
+    <span class="topbar-brand">che media ho?</span>
+    <div class="topbar-actions">
+      <button class="icon-btn hidden" id="logoutBtn" title="Esci" aria-label="Esci">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+          <polyline points="16 17 21 12 16 7"/>
+          <line x1="21" x2="9" y1="12" y2="12"/>
+        </svg>
+      </button>
+      <button class="icon-btn" id="themeBtn" title="Cambia tema" aria-label="Cambia tema">
+        <svg id="themeIconSun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" x2="12" y1="1" y2="3"/>
+          <line x1="12" x2="12" y1="21" y2="23"/>
+          <line x1="4.22" x2="5.64" y1="4.22" y2="5.64"/>
+          <line x1="18.36" x2="19.78" y1="18.36" y2="19.78"/>
+          <line x1="1" x2="3" y1="12" y2="12"/>
+          <line x1="21" x2="23" y1="12" y2="12"/>
+          <line x1="4.22" x2="5.64" y1="19.78" y2="18.36"/>
+          <line x1="18.36" x2="19.78" y1="5.64" y2="4.22"/>
+        </svg>
+        <svg id="themeIconMoon" class="hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <section class="view active" id="view-login">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="login-logo-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+            <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+          </svg>
+        </div>
+        <div>
+          <div class="login-title">che media ho?</div>
+          <div class="login-subtitle">accedi con classeviva</div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="inp-uid">User ID o Email</label>
+        <input id="inp-uid" type="text" placeholder="S1234567 / example@example.org"
+               autocomplete="username" spellcheck="false" />
+      </div>
+      <div class="field">
+        <label for="inp-pwd">Password</label>
+        <input id="inp-pwd" type="password" placeholder="••••••••"
+               autocomplete="current-password" />
+      </div>
+      <button class="login-btn" id="loginBtn">Accedi</button>
+      <div class="login-error" id="loginError"></div>
+      <p class="login-note">
+        i tuoi dati non vengono mai salvati sul server.<br>
+        la sessione è gestita tramite cookie di classeviva.
+      </p>
+    </div>
+  </section>
+
+  <section class="view" id="view-grades">
+    <div class="summary-bar">
+      <div>
+        <div class="summary-label">media generale</div>
+        <div class="summary-avg" id="overallAvg">—</div>
+      </div>
+      <button class="refresh-btn" id="refreshBtn">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"/>
+          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+        </svg>
+        aggiorna
+      </button>
+    </div>
+    <div id="gradesContainer">
+      <div class="period-block">
+        <div class="period-label">caricamento...</div>
+        <div class="skeleton skeleton-row"></div>
+        <div class="skeleton skeleton-row"></div>
+        <div class="skeleton skeleton-row"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="view-subject">
+    <button class="back-btn" id="backBtn">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="15 18 9 12 15 6"/>
+      </svg>
+      indietro
+    </button>
+    <div id="subjectContent"></div>
+  </section>
+</div>
+
+<div class="modal-overlay" id="gradeModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-grade-big" id="modalGrade"></div>
+    <div id="modalRows"></div>
+    <button class="modal-close" id="modalClose">chiudi</button>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
