@@ -1,7 +1,7 @@
 const WORKER_BASE  = "https://cheapiho.gabrx.eu.org/v3";
 const AUTH_PATH    = "/auth-p7/app/default/AuthApi4.php?a=aLoginPwd";
 const BASE_API     = "/rest/w1";
-const GRADES_YEAR  = 26; // da ggiornare ogni anno scolastico, penso
+const GRADES_YEAR  = 26; // da aggiornare ogni anno scolastico, penso
 
 const state = {
   cookies:   null,   // { PHPSESSID, webidentity, webrole }
@@ -294,9 +294,16 @@ function buildChart(container, grades) {
     const gc = g.isBlue ? "var(--blue)" : (g.decimalValue >= 6.5 ? "var(--green)" : g.decimalValue >= 5.5 ? "var(--yellow)" : "var(--red)");
     dots += `<circle class="chart-dot"
       cx="${pts[i].x}" cy="${pts[i].y}"
+      r="4"
       fill="${gc}"
       data-val="${escAttr(g.displayValue || String(g.decimalValue))}"
       data-date="${escAttr(g.evtDate || "")}"
+    />
+    <circle class="chart-dot-hit"
+      cx="${pts[i].x}" cy="${pts[i].y}"
+      r="12"
+      fill="transparent"
+      data-idx="${i}"
     />`;
   });
 
@@ -321,27 +328,47 @@ function buildChart(container, grades) {
   container.innerHTML = svgMarkup;
 
   const tip = container.querySelector("#chartTip");
-  container.querySelectorAll(".chart-dot").forEach((dot, i) => {
-    function showTip(e) {
+  const dotEls = container.querySelectorAll(".chart-dot");
+
+  function activateDot(idx) {
+    dotEls.forEach((d, j) => { d.setAttribute("r", j === idx ? "6" : "4"); });
+  }
+  function resetDots() {
+    dotEls.forEach(d => d.setAttribute("r", "4"));
+  }
+
+  container.querySelectorAll(".chart-dot-hit").forEach(hit => {
+    const i   = parseInt(hit.dataset.idx);
+    const dot = dotEls[i];
+
+    function showTip() {
       const val  = dot.dataset.val;
       const date = dot.dataset.date;
       tip.innerHTML = `<strong>${val}</strong><span class="tt-date">${date}</span>`;
       tip.classList.add("show");
+      activateDot(i);
 
       const rect = container.getBoundingClientRect();
       const cx   = pts[i].x / W * rect.width;
       const cy   = pts[i].y / H * rect.height;
-      let left = cx - tip.offsetWidth / 2;
-      left = Math.max(0, Math.min(left, rect.width - tip.offsetWidth - 4));
-      tip.style.left = left + "px";
-      tip.style.top  = (cy - 42) + "px";
+      tip.style.left = "0px";
+      tip.style.top  = "0px";
+      requestAnimationFrame(() => {
+        let left = cx - tip.offsetWidth / 2;
+        left = Math.max(0, Math.min(left, rect.width - tip.offsetWidth - 4));
+        tip.style.left = left + "px";
+        tip.style.top  = (cy - 46) + "px";
+      });
     }
-    function hideTip() { tip.classList.remove("show"); }
+    function hideTip() {
+      tip.classList.remove("show");
+      resetDots();
+    }
 
-    dot.addEventListener("mouseenter", showTip);
-    dot.addEventListener("mouseleave", hideTip);
-    dot.addEventListener("touchstart", e => { e.preventDefault(); showTip(e); }, { passive: false });
-    dot.addEventListener("touchend",   hideTip);
+    hit.addEventListener("mouseenter", showTip);
+    hit.addEventListener("mouseleave", hideTip);
+    hit.addEventListener("touchstart", e => { e.preventDefault(); showTip(); }, { passive: false });
+    hit.addEventListener("touchend",   hideTip);
   });
 }
 
@@ -424,6 +451,16 @@ function openSubject(subjName) {
         <button class="goal-btn" id="goalCalcBtn">calcola</button>
       </div>
       <div class="goal-result" id="goalResult"></div>
+    </div>
+
+    <div class="goal-section">
+      <div class="goal-title">previsione media</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">inserisci i voti futuri (separati da virgola o spazio)</div>
+      <div class="goal-row" style="flex-wrap:nowrap;gap:8px">
+        <input class="goal-input" id="forecastGrades" type="text" placeholder="es. 7, 8, 6.5" style="width:100%;flex:1" />
+        <button class="goal-btn" id="forecastCalcBtn">simula</button>
+      </div>
+      <div class="goal-result" id="forecastResult"></div>
     </div>`;
 
   document.getElementById("subjectContent").innerHTML = html;
@@ -455,6 +492,26 @@ function openSubject(subjName) {
     } else {
       res.innerHTML = `con ${numGrades} vot${numGrades === 1 ? "o" : "i"} da <strong>${fmtAvr(needed)}</strong> raggiungi <strong>${target}</strong>`;
     }
+  });
+
+  document.getElementById("forecastCalcBtn").addEventListener("click", () => {
+    const raw = document.getElementById("forecastGrades").value;
+    const res = document.getElementById("forecastResult");
+
+    const parsed = raw.split(/[,\s]+/).map(s => parseFloat(s.replace(",", "."))).filter(v => !isNaN(v) && v >= 1 && v <= 10);
+    if (!parsed.length) {
+      res.textContent = "inserisci almeno un voto valido (1–10)";
+      return;
+    }
+
+    const newCount = vals.length + parsed.length;
+    const newSum   = vals.reduce((a, b) => a + b, 0) + parsed.reduce((a, b) => a + b, 0);
+    const newAvr   = newSum / newCount;
+    const delta    = newAvr - subjAvr;
+    const deltaStr = (delta >= 0 ? "+" : "") + fmtAvr(delta);
+    const cls      = gradeClass(newAvr);
+
+    res.innerHTML = `con ${parsed.length} vot${parsed.length === 1 ? "o" : "i"} aggiunt${parsed.length === 1 ? "o" : "i"}: media → <strong class="${cls}">${fmtAvr(newAvr)}</strong> <span style="color:var(--muted)">(${deltaStr})</span>`;
   });
 
   showView("view-subject");
