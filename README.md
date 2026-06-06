@@ -62,9 +62,10 @@ il tutto tramite una **ui chiara**, pulita e mobile-friendly.
 
 ---
 
-## endpoint usati
+## techy things
 
-fai riferimento a questa [repo](https://github.com/open-viva/endpoints).
+sei un dev e vuoi saperne di più? vai alla [wiki](https://github.com/open-viva/chemediaho/wiki/chemediaho-%E2%80%90-come-funziona,-setup).
+vuoi sapere come l'app si interfaccia a classeviva? fai riferimento a questa [repo](https://github.com/open-viva/endpoints).
 
 ---
 
