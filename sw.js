@@ -10,14 +10,5 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
-  event.respondWith(
-    new Response(`
-      <html>
-        <body style="font-family:sans-serif;text-align:center;padding:2rem">
-          <h1>chemediaho v2</h1>
-          <p>Questa versione è stata dismessa. <a href="https://media.gabrx.eu.org">Vai alla nuova versione</a></p>
-        </body>
-      </html>
-    `, { headers: { 'Content-Type': 'text/html' } })
-  );
+  event.respondWith(fetch(event.request));
 });
