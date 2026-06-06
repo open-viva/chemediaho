@@ -35,16 +35,6 @@ jobs:
             exit 1
           fi
 
-      - name: Update version in app.py
-        run: |
-          sed -i 's/APP_VERSION = "[^"]*"/APP_VERSION = "${{ inputs.version }}"/' app.py
-          grep "APP_VERSION" app.py
-
-      - name: Update version in sw.js
-        run: |
-          sed -i "s/const CACHE_NAME = 'chemediaho-v[^']*'/const CACHE_NAME = 'chemediaho-v${{ inputs.version }}'/" frontend/sw.js
-          grep "CACHE_NAME" frontend/sw.js
-
       - name: Get last release tag
         id: last_release
         run: |
@@ -150,17 +140,11 @@ jobs:
             
             console.log('Generated changelog:');
             console.log(changelog);
-      
-      - name: Commit version bump
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add app.py frontend/sw.js
-          git commit -m "chore: bump version to ${{ inputs.version }}"
-          git push origin main
 
       - name: Create and push tag
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v${{ inputs.version }}" -m "Release v${{ inputs.version }}"
           git push origin "v${{ inputs.version }}"
 
@@ -178,27 +162,3 @@ jobs:
               name: '${{ inputs.version }}',
               body: changelog
             });
-
-      # ---------------------------
-      # DOCKER HUB DEPLOY
-      # ---------------------------
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-          
-      - name: Build and push multi-arch Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: |
-            gablilli/chemediaho:${{ inputs.version }}
-            gablilli/chemediaho:latest
-
