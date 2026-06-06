@@ -1,7 +1,7 @@
-const WORKER_BASE  = "https://cheapiho.gabrx.eu.org/v3";
+const WORKER_BASE  = "__WORKER_BASE__";
 const AUTH_PATH    = "/auth-p7/app/default/AuthApi4.php?a=aLoginPwd";
 const BASE_API     = "/rest/w1";
-const GRADES_YEAR  = 26; // da ggiornare ogni anno scolastico, penso
+const GRADES_YEAR  = 26; // da aggiornare ogni anno scolastico, penso
 
 const state = {
   cookies:   null,   // { PHPSESSID, webidentity, webrole }
