@@ -1,7 +1,7 @@
 const WORKER_BASE  = "https://cheapiho.gabrx.eu.org/v3";
 const AUTH_PATH    = "/auth-p7/app/default/AuthApi4.php?a=aLoginPwd";
 const BASE_API     = "/rest/w1";
-const GRADES_YEAR  = 26; // da aggiornare ogni anno scolastico, penso
+const GRADES_YEAR  = 26; // da ggiornare ogni anno scolastico, penso
 
 const state = {
   cookies:   null,   // { PHPSESSID, webidentity, webrole }
@@ -329,6 +329,7 @@ function buildChart(container, grades) {
 
   const tip = container.querySelector("#chartTip");
   const dotEls = container.querySelectorAll(".chart-dot");
+  let activeTipIdx = -1;
 
   function activateDot(idx) {
     dotEls.forEach((d, j) => { d.setAttribute("r", j === idx ? "6" : "4"); });
@@ -337,39 +338,56 @@ function buildChart(container, grades) {
     dotEls.forEach(d => d.setAttribute("r", "4"));
   }
 
+  function showTipAt(i) {
+    const dot  = dotEls[i];
+    const val  = dot.dataset.val;
+    const date = dot.dataset.date;
+    tip.innerHTML = `<strong>${val}</strong><span class="tt-date">${date}</span>`;
+    tip.classList.add("show");
+    activateDot(i);
+    activeTipIdx = i;
+
+    const rect = container.getBoundingClientRect();
+    const cx   = pts[i].x / W * rect.width;
+    const cy   = pts[i].y / H * rect.height;
+    tip.style.left = "0px";
+    tip.style.top  = "0px";
+    requestAnimationFrame(() => {
+      let left = cx - tip.offsetWidth / 2;
+      left = Math.max(0, Math.min(left, rect.width - tip.offsetWidth - 4));
+      tip.style.left = left + "px";
+      tip.style.top  = (cy - 46) + "px";
+    });
+  }
+
+  function hideTip() {
+    tip.classList.remove("show");
+    resetDots();
+    activeTipIdx = -1;
+  }
+
   container.querySelectorAll(".chart-dot-hit").forEach(hit => {
-    const i   = parseInt(hit.dataset.idx);
-    const dot = dotEls[i];
+    const i = parseInt(hit.dataset.idx);
 
-    function showTip() {
-      const val  = dot.dataset.val;
-      const date = dot.dataset.date;
-      tip.innerHTML = `<strong>${val}</strong><span class="tt-date">${date}</span>`;
-      tip.classList.add("show");
-      activateDot(i);
-
-      const rect = container.getBoundingClientRect();
-      const cx   = pts[i].x / W * rect.width;
-      const cy   = pts[i].y / H * rect.height;
-      tip.style.left = "0px";
-      tip.style.top  = "0px";
-      requestAnimationFrame(() => {
-        let left = cx - tip.offsetWidth / 2;
-        left = Math.max(0, Math.min(left, rect.width - tip.offsetWidth - 4));
-        tip.style.left = left + "px";
-        tip.style.top  = (cy - 46) + "px";
-      });
-    }
-    function hideTip() {
-      tip.classList.remove("show");
-      resetDots();
-    }
-
-    hit.addEventListener("mouseenter", showTip);
+    hit.addEventListener("mouseenter", () => showTipAt(i));
     hit.addEventListener("mouseleave", hideTip);
-    hit.addEventListener("touchstart", e => { e.preventDefault(); showTip(); }, { passive: false });
-    hit.addEventListener("touchend",   hideTip);
+
+    hit.addEventListener("touchstart", e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (activeTipIdx === i) {
+        hideTip();
+      } else {
+        showTipAt(i);
+      }
+    }, { passive: false });
   });
+
+  document.addEventListener("touchstart", e => {
+    if (activeTipIdx !== -1 && !container.contains(e.target)) {
+      hideTip();
+    }
+  }, { passive: true });
 }
 
 function openSubject(subjName) {
@@ -409,10 +427,38 @@ function openSubject(subjName) {
           <div class="stat-label">minimo</div>
         </div>` : ""}
       </div>
-      <div class="chart-section">
-        <div class="chart-title">andamento vot</div>
-        <div class="chart-wrap" id="subjectChartContainer"></div>
+    </div>
+    <div class="smart-bar">
+      <div class="smart-bar-chart">
+        <div class="chart-section" style="margin:0;height:100%">
+          <div class="chart-title">andamento voti</div>
+          <div class="chart-wrap" id="subjectChartContainer"></div>
+        </div>
       </div>
+      <div class="smart-bar-tools">
+        <div class="goal-section" style="margin:0">
+          <div class="goal-title">simulatore voto</div>
+          <div class="goal-row">
+            <span style="font-size:13px;color:var(--muted)">obiettivo</span>
+            <input class="goal-input" id="goalTarget" type="number" min="1" max="10" step="0.25" placeholder="es. 7" />
+            <span style="font-size:13px;color:var(--muted)">in</span>
+            <input class="goal-input" id="goalNumGrades" type="number" min="1" max="10" step="1" value="1" style="width:54px" />
+            <span style="font-size:13px;color:var(--muted)">voti</span>
+            <button class="goal-btn" id="goalCalcBtn">calcola</button>
+          </div>
+          <div class="goal-result" id="goalResult"></div>
+        </div>
+        <div class="goal-section" style="margin:0" id="forecastSection">
+          <div class="goal-title">previsione media</div>
+          <div style="font-size:12px;color:var(--muted);margin-bottom:10px">voti futuri (virgola o spazio)</div>
+          <div class="goal-row" style="flex-wrap:nowrap;gap:8px">
+            <input class="goal-input" id="forecastGrades" type="text" placeholder="es. 7, 8, 6.5" style="width:100%;flex:1" />
+            <button class="goal-btn" id="forecastCalcBtn">simula</button>
+          </div>
+          <div class="goal-result" id="forecastResult"></div>
+        </div>
+      </div>
+    </div>
     </div>`;
 
   for (const p of periods) {
@@ -438,30 +484,6 @@ function openSubject(subjName) {
     }
     html += `</div>`;
   }
-
-  html += `
-    <div class="goal-section">
-      <div class="goal-title">simulatore voto</div>
-      <div class="goal-row">
-        <span style="font-size:13px;color:var(--muted)">obiettivo</span>
-        <input class="goal-input" id="goalTarget" type="number" min="1" max="10" step="0.25" placeholder="es. 7" />
-        <span style="font-size:13px;color:var(--muted)">in</span>
-        <input class="goal-input" id="goalNumGrades" type="number" min="1" max="10" step="1" value="1" style="width:54px" />
-        <span style="font-size:13px;color:var(--muted)">voti</span>
-        <button class="goal-btn" id="goalCalcBtn">calcola</button>
-      </div>
-      <div class="goal-result" id="goalResult"></div>
-    </div>
-
-    <div class="goal-section">
-      <div class="goal-title">previsione media</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">inserisci i voti futuri (separati da virgola o spazio)</div>
-      <div class="goal-row" style="flex-wrap:nowrap;gap:8px">
-        <input class="goal-input" id="forecastGrades" type="text" placeholder="es. 7, 8, 6.5" style="width:100%;flex:1" />
-        <button class="goal-btn" id="forecastCalcBtn">simula</button>
-      </div>
-      <div class="goal-result" id="forecastResult"></div>
-    </div>`;
 
   document.getElementById("subjectContent").innerHTML = html;
   const chartContainer = document.getElementById("subjectChartContainer");
@@ -497,6 +519,7 @@ function openSubject(subjName) {
   document.getElementById("forecastCalcBtn").addEventListener("click", () => {
     const raw = document.getElementById("forecastGrades").value;
     const res = document.getElementById("forecastResult");
+    const box = document.getElementById("forecastSection");
 
     const parsed = raw.split(/[,\s]+/).map(s => parseFloat(s.replace(",", "."))).filter(v => !isNaN(v) && v >= 1 && v <= 10);
     if (!parsed.length) {
@@ -512,6 +535,10 @@ function openSubject(subjName) {
     const cls      = gradeClass(newAvr);
 
     res.innerHTML = `con ${parsed.length} vot${parsed.length === 1 ? "o" : "i"} aggiunt${parsed.length === 1 ? "o" : "i"}: media → <strong class="${cls}">${fmtAvr(newAvr)}</strong> <span style="color:var(--muted)">(${deltaStr})</span>`;
+
+    box.classList.remove("flash-up", "flash-down");
+    void box.offsetWidth;
+    box.classList.add(delta >= 0 ? "flash-up" : "flash-down");
   });
 
   showView("view-subject");
