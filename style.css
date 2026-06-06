@@ -225,8 +225,8 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 11px 14px;
-  margin-bottom: 6px;
+  padding: 14px 14px;
+  margin-bottom: 8px;
   cursor: pointer;
   transition: border-color var(--transition), background var(--transition);
   gap: 10px;
@@ -447,6 +447,97 @@ body {
   height: 52px;
   margin-bottom: 6px;
   border-radius: var(--radius);
+}
+
+.chart-section {
+  margin: 16px 14px 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 14px 10px;
+}
+.chart-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+.chart-wrap {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+}
+.chart-wrap svg {
+  display: block;
+  width: 100%;
+  overflow: visible;
+}
+
+.chart-y-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  fill: var(--muted);
+}
+
+.chart-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+
+.chart-area {
+  opacity: .15;
+}
+
+.chart-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.chart-dot {
+  r: 4;
+  stroke-width: 2;
+  stroke: var(--bg);
+  cursor: pointer;
+  transition: r 120ms ease;
+}
+.chart-dot:hover { r: 6; }
+.chart-tooltip {
+  position: absolute;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  pointer-events: none;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 120ms ease, transform 120ms ease;
+  z-index: 10;
+}
+.chart-tooltip.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.chart-tooltip .tt-date {
+  color: var(--muted);
+  font-size: 10px;
+  display: block;
+  margin-top: 1px;
+}
+
+.chart-suff-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  fill: var(--muted);
 }
 
 @media (min-width: 480px) {
