@@ -26,7 +26,7 @@
 
 ## 🧠 cos'è *che media ho?*
 
-**che media ho?** è una semplice **web app flask**, self-hostabile via **docker**, che ti permette di:
+**che media ho?** è una semplice **web app**, self-hostabile su vercel, che ti permette di:
 
 - visualizzare la **media dei voti su classeviva**
 - fare **simulazioni e previsioni**
