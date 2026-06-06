@@ -382,6 +382,10 @@ function openSubject(subjName) {
           <div class="stat-label">minimo</div>
         </div>` : ""}
       </div>
+      <div class="chart-section">
+        <div class="chart-title">andamento vot</div>
+        <div class="chart-wrap" id="subjectChartContainer"></div>
+      </div>
     </div>`;
 
   for (const p of periods) {
@@ -423,6 +427,11 @@ function openSubject(subjName) {
     </div>`;
 
   document.getElementById("subjectContent").innerHTML = html;
+  const chartContainer = document.getElementById("subjectChartContainer");
+  if (chartContainer) {
+    const sortedGrades = [...allGrades].sort((a, b) => new Date(a.evtDate) - new Date(b.evtDate));
+    buildChart(chartContainer, sortedGrades);
+  }
 
   document.querySelectorAll(".grade-card").forEach(card => {
     card.addEventListener("click", () => openGradeModal(JSON.parse(card.dataset.grade)));
